@@ -152,7 +152,6 @@ export function createCommunicationBook(
 export function createBoard(input: CreateBoardInput): Board {
   requireNonBlank(input.id, 'Board.id')
   requireNonBlank(input.communicationBookId, 'Board.communicationBookId')
-  requireNonBlank(input.name, 'Board.name')
 
   const columns = input.columns ?? DEFAULT_COLUMNS
   const defaultDwellTime = input.defaultDwellTime ?? DEFAULT_DWELL_TIME

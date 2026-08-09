@@ -70,6 +70,11 @@ describe('communication book domain model', () => {
     expect(board).not.toHaveProperty('y')
   })
 
+  it('allows a board name to be blank without replacing its value', () => {
+    expect(makeBoard({ name: '' }).name).toBe('')
+    expect(makeBoard({ name: '   ' }).name).toBe('   ')
+  })
+
   it('creates an ordered symbol with nullable optional values', () => {
     const symbol = makeSymbol({ position: 3 })
 

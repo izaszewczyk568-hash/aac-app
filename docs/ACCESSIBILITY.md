@@ -21,4 +21,12 @@ Test komponentu używa ról dostępności. Po pojawieniu się interaktywnych ekr
 
 ## Obecny ekran
 
-Ma pojedynczy element `main`, nagłówek pierwszego poziomu, tekstową informację, poprawny język dokumentu i responsywną typografię. Nie zawiera elementów interaktywnych.
+Ekran developerski zawiera jedno `main` wewnątrz komponentu `Board` oraz poprzedzający go panel demonstracyjny. Natywne radio przełącza tryb, a select pozwala prezentować status zapisu. Kontrolki demo nie są częścią docelowego interfejsu produktu.
+
+## Board v1
+
+Komponent używa natywnych przycisków, pola tekstowego z powiązaną etykietą, logicznych nagłówków oraz sekcji gridu. Fokus klawiatury ma wyraźny obrys. Undo i Redo są natywnie wyłączone. Przyszłe akcje menu są fokusowalne, oznaczone przez `aria-disabled` i opisane jako niedostępne; otwarcie przenosi fokus do pierwszej pozycji, strzałki oraz Home/End przemieszczają go między pozycjami, a Escape zamyka menu i zwraca fokus. Status zapisu używa uprzejmego regionu `status` z atomowym komunikatem. Tryb `use` nie renderuje kontrolek edycji.
+
+Toolbar trybu `use` ogranicza kolejność fokusu do powrotu na stronę główną i pełnego ekranu. Nazwa tablicy pozostaje nagłówkiem tekstowym, a akcje edycyjne, destrukcyjne i status zapisu nie są obecne w DOM. W pełnym ekranie pozostaje wyłącznie workspace z dostępnym przyciskiem „Zamknij pełny ekran”; użytkownik może też użyć natywnego klawisza Escape przeglądarki.
+
+Testy komponentowe sprawdzają role, etykietę i rozdzielenie trybów. Przed integracją należy manualnie sprawdzić kolejność Tab, widoczność fokusu, czytnik ekranu, powiększenie do 400%, reflow na tablecie i małym ekranie oraz działanie w trybach wysokiego kontrastu.

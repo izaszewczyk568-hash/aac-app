@@ -38,6 +38,8 @@ Model `CommunicationBook → Board → Symbol` jest czystym modułem TypeScript 
 
 Tablice używają siatki określonej liczbą kolumn, a symbole pola `position`; model nie przewiduje współrzędnych x/y. Opcjonalne wartości serializowalne, takie jak `linkedBoardId`, `speechText`, obraz i indywidualny `dwellTime`, używają `null`. Fabryki zapewniają bezpieczne wartości domyślne, a helper efektywnego dwell time stosuje wartość symbolu przed wartością tablicy.
 
+`Board.name` może być pustym stringiem i fabryka zachowuje podaną wartość bez podstawiania tekstu zastępczego. Warstwa prezentacji pokazuje „Tablica bez tytułu” dla pustej lub składającej się wyłącznie z białych znaków nazwy, gdy wyświetla ją jako tekst.
+
 ## 007 — Główna tablica jako pojedyncza referencja książki
 
 **Status:** przyjęta

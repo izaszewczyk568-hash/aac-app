@@ -24,6 +24,10 @@ Książka posiada `schemaVersion`, a bieżącą wersję określa stała `CURRENT
 
 Projekt jest gotowy do dodania osobnego katalogu testów E2E oraz narzędzia automatycznej kontroli dostępności, gdy pojawi się pierwszy rzeczywisty przepływ. Nie dodajemy jeszcze ciężkiego środowiska przeglądarkowego bez testowanego scenariusza. Semantyczne zapytania Testing Library stanowią podstawę testów komponentowych.
 
+## Warstwa widoku Board
+
+`Board` jest lekkim komponentem prezentacyjnym zależnym od modelu domenowego, ale niezależnym od storage. Tryb, status zapisu i reakcje na działania są przekazywane przez props. Lokalny stan nazwy przygotowuje pole do przyszłego autosave, nie wykonując zapisu ani komunikacji sieciowej. Rozłączne renderowanie trybów zapobiega umieszczaniu kontrolek edycji w drzewie DOM trybu dziecka.
+
 ## Granice obecnego etapu
 
-Brak trwałego zapisu, repozytorium danych, routingu, service workera, telemetrii i połączeń z backendem. Model domenowy nie jest jeszcze używany przez UI.
+Brak trwałego zapisu, repozytorium danych, routingu, service workera, telemetrii i połączeń z backendem. Komponent `Board` jest podłączony do głównego ekranu wyłącznie jako lokalne demo developerskie ze sztucznymi danymi, a symbole nie mają jeszcze reprezentacji UI.

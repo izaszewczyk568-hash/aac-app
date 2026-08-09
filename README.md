@@ -14,6 +14,8 @@ npm ci
 npm run dev
 ```
 
+Po uruchomieniu lokalny adres wyświetla tymczasowy ekran demonstracyjny komponentu `Board`. Kontrolki nad tablicą pozwalają przełączać tryby `edit`/`use` i prezentacyjne stany zapisu. Jest to wyłącznie narzędzie developerskie: używa sztucznych danych, nie zapisuje zmian i nie stanowi docelowego interfejsu produktu.
+
 ## Kontrole jakości
 
 ```bash
@@ -44,4 +46,4 @@ Nie commituj plików `.env`, sekretów, prawdziwych danych użytkowników ani rz
 
 ## Status
 
-Obecnie ekran startowy informuje jedynie, że aplikacja jest w budowie. Dane książek, IndexedDB, PWA, synteza mowy, import/eksport i interfejs AAC pozostają poza zakresem tego etapu.
+Obecnie ekran aplikacji udostępnia wyłącznie lokalny podgląd developerski `Board v1`. Dane książek, IndexedDB, PWA, synteza mowy, import/eksport i docelowy interfejs AAC pozostają poza zakresem tego etapu.
