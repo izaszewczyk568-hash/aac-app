@@ -6,7 +6,8 @@ export type UpdateAvailableHandler = (update: WaitingPwaUpdate) => void
 
 export async function registerPwa(onUpdateAvailable: UpdateAvailableHandler): Promise<void> {
   if (!('serviceWorker' in navigator)) return
-  const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+  const base = import.meta.env.BASE_URL
+  const registration = await navigator.serviceWorker.register(`${base}sw.js`, { scope: base })
 
   const notifyWaiting = () => {
     if (!registration.waiting) return

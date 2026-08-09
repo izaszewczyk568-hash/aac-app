@@ -6,7 +6,7 @@ const transparentPng = Buffer.from(
 )
 
 test('critical book creation, editing, use and persistence flow', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('./')
 
   await expect(page.getByText('Podgląd developerski')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Demo Board' })).toHaveCount(0)

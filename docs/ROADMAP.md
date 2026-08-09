@@ -12,6 +12,7 @@
 8. Nawigacja między tablicami także w różnych księgach z historią `{bookId, boardId}`.
 9. Dostępne automatyczne skany axe, E2E i testy PWA/offline.
 10. PWA v1 oraz jawnie ładowane syntetyczne fixtures developmentu.
+11. Automatyczny deployment statycznej aplikacji do GitHub Pages po zielonym CI na `main`.
 
 ## Kolejne etapy
 

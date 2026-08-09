@@ -33,6 +33,10 @@ Vitest i Testing Library obsługują testy jednostkowe/komponentowe. Playwright 
 
 GitHub Actions uruchamia kontrole po pushu do `main` oraz dla pull requestów do `main`. Produkcyjna aplikacja po pierwszym poprawnym uruchomieniu online może działać offline; dane ksiąg nadal pozostają wyłącznie w IndexedDB.
 
+## Wersja publiczna
+
+Po zielonych kontrolach push do `main` automatycznie buduje i publikuje aplikację przez GitHub Pages pod adresem `https://izaszewczyk568-hash.github.io/aac-app/`. Build deploymentu używa bazowej ścieżki `/aac-app/`; lokalne komendy nadal działają pod `/`. Hosting obejmuje tylko statyczny app shell. Księgi, obrazy i ustawienia użytkownika pozostają w IndexedDB konkretnej przeglądarki i nie są wysyłane do GitHub.
+
 ## Bezpieczeństwo repozytorium
 
 Główną gałęzią jest `main`; większe zmiany mogą powstawać na `feature/...`. Nie commituj `.env`, sekretów, prawdziwych danych użytkowników ani rzeczywistych eksportów `.aacbook`. `.env.example` pozostaje bezpiecznym, wersjonowanym szablonem. Lokalne dane umieszczaj w ignorowanych katalogach `exports/`, `private/` lub `user-data/`.

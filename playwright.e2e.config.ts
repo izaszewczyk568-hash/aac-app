@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const appBase = process.env.VITE_BASE_PATH ?? '/'
+const previewUrl = `http://127.0.0.1:4175${appBase}`
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
@@ -7,7 +10,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4175',
+    baseURL: previewUrl,
     trace: 'retain-on-failure',
   },
   projects: [
@@ -18,7 +21,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run preview -- --host 127.0.0.1 --port 4175',
-    url: 'http://127.0.0.1:4175',
+    url: previewUrl,
     reuseExistingServer: !process.env.CI,
   },
 })

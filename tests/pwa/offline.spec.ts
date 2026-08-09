@@ -66,15 +66,15 @@ async function ensureServiceWorkerControls(page: Page) {
 }
 
 test('manifest and versioned app shell cache are complete and scoped', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('./')
   await ensureServiceWorkerControls(page)
 
-  const manifest = await page.evaluate(() => fetch('/manifest.webmanifest').then((response) => response.json()))
+  const manifest = await page.evaluate(() => fetch(new URL('manifest.webmanifest', window.location.href)).then((response) => response.json()))
   expect(manifest).toMatchObject({
     name: 'AAC',
     short_name: 'AAC',
-    start_url: '/',
-    scope: '/',
+    start_url: './',
+    scope: './',
     display: 'standalone',
   })
   expect(manifest.icons).not.toHaveLength(0)
@@ -89,14 +89,15 @@ test('manifest and versioned app shell cache are complete and scoped', async ({ 
   })
   expect(cacheState.names).toHaveLength(1)
   expect(cacheState.names[0]).toMatch(/^aac-app-shell-/)
-  expect(cacheState.requests).toContain('/index.html')
-  expect(cacheState.requests).toContain('/manifest.webmanifest')
+  const basePath = new URL('.', page.url()).pathname
+  expect(cacheState.requests).toContain(`${basePath}index.html`)
+  expect(cacheState.requests).toContain(`${basePath}manifest.webmanifest`)
   expect(cacheState.requests.some((path) => /\/assets\/.*\.js$/.test(path))).toBe(true)
   expect(cacheState.requests.some((path) => path.endsWith('.aacbook') || path.startsWith('blob:'))).toBe(false)
 })
 
 test('imported book, image, editing and linked-board navigation work offline', async ({ page, context }) => {
-  await page.goto('/')
+  await page.goto('./')
   await ensureServiceWorkerControls(page)
   await page.getByLabel('Wybierz plik kopii księgi AAC').setInputFiles({
     name: 'offline.aacbook',

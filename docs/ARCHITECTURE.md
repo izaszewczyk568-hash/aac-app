@@ -9,7 +9,7 @@
 - PWA app shell generowany podczas buildu,
 - ESLint i GitHub Actions na Node.js 22.
 
-CI dla push/PR do `main` wykonuje instalację z lockfile, lint, testy unit/component, testy a11y, build, E2E i PWA/offline zgodnie ze skryptami projektu.
+CI dla push/PR do `main` wykonuje instalację z lockfile, lint, testy unit/component, testy a11y, build, E2E i PWA/offline zgodnie ze skryptami projektu. Po zielonym CI dla pushu do `main` osobny job buduje app shell z `VITE_BASE_PATH=/aac-app/` i publikuje katalog `dist` w GitHub Pages. Pull requesty nigdy nie wykonują deploymentu.
 
 ## Warstwy i nawigacja
 
@@ -31,4 +31,4 @@ Eksport jednej księgi nie dołącza innych ksiąg. Zewnętrzny `linkedBoardId` 
 
 ## PWA i granice
 
-Service worker buforuje wyłącznie app shell tego samego originu. IndexedDB, Bloby, adresy `blob:` i `.aacbook` nie trafiają do Cache Storage. Brak backendu, telemetrii, cloud sync, finalnego routingu URL i caregiver locka.
+Service worker buforuje wyłącznie app shell tego samego originu i respektuje bazową ścieżkę deploymentu (`/` lokalnie, `/aac-app/` w GitHub Pages). Manifest używa relatywnego scope/start URL, dzięki czemu instalacja PWA pozostaje ograniczona do właściwej aplikacji. IndexedDB, Bloby, adresy `blob:` i `.aacbook` nie trafiają do Cache Storage. Brak backendu, telemetrii, cloud sync, finalnego routingu URL i caregiver locka.
