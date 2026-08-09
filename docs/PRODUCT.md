@@ -15,4 +15,6 @@ Produkt będzie aplikacją webową, dostępną publicznie bez konta. Dane użytk
 
 ## Zakres obecnego etapu
 
-Wyłącznie fundament techniczny i dokumentacyjny. Funkcje domenowe AAC nie należą do tego etapu.
+Zaimplementowany jest podstawowy, wersjonowany model książki komunikacyjnej, tablic i symboli. Książka może zawierać wiele połączonych tablic, a `mainBoardId` wskazuje jedyną główną tablicę, od której rozpoczyna się korzystanie z książki i do której będzie prowadzić akcja „Tablica główna”. Wybór jest opcjonalny i można go zmienić. Tablice używają siatki, a symbole kolejności w siatce. Symbol może prowadzić do innej tablicy i może nadpisywać domyślny czas dwell tablicy.
+
+Interfejs AAC, trwały zapis, import i eksport, PWA oraz synteza mowy pozostają poza zakresem tego etapu.
