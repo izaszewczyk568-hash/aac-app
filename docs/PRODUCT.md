@@ -1,28 +1,21 @@
 # Produkt
 
-## Cel
+## Cel i użytkownicy
 
-Aplikacja AAC ma pomagać dzieciom z trudnościami w komunikacji werbalnej wyrażać potrzeby, wybory i emocje za pomocą symboli oraz syntezy mowy.
-
-## Użytkownicy
-
-- dziecko korzystające z przygotowanej tablicy komunikacyjnej,
-- terapeuta, rodzic lub opiekun przygotowujący książki, tablice i symbole.
+Aplikacja AAC pomaga dzieciom z trudnościami w komunikacji werbalnej wyrażać potrzeby, wybory i emocje za pomocą symboli oraz lokalnej syntezy mowy. Terapeuta, rodzic lub opiekun przygotowuje księgi, tablice i symbole; dziecko korzysta z trybu `use`.
 
 ## Założenia MVP
 
-Produkt będzie aplikacją webową, dostępną publicznie bez konta. Dane użytkownika pozostaną lokalnie w przeglądarce. Priorytetami są dostępność, niezawodność, prostota, prywatność i wydajność na słabszych urządzeniach.
+Produkt jest aplikacją webową, local-first i nie wymaga konta. Dane pozostają lokalnie w przeglądarce. Priorytetami są dostępność, niezawodność, prostota, prywatność i wydajność na słabszych urządzeniach.
 
-## Zakres obecnego etapu
+## Zaimplementowany zakres
 
-Zaimplementowany jest podstawowy, wersjonowany model książki komunikacyjnej, tablic i symboli. Książka może zawierać wiele połączonych tablic, a `mainBoardId` wskazuje jedyną główną tablicę, od której rozpoczyna się korzystanie z książki i do której będzie prowadzić akcja „Tablica główna”. Wybór jest opcjonalny i można go zmienić. Tablice używają siatki, a symbole kolejności w siatce. Symbol może prowadzić do innej tablicy i może nadpisywać domyślny czas dwell tablicy.
+Model `CommunicationBook → Board → Symbol` jest wersjonowany. `mainBoardId` wskazuje jedyną główną tablicę księgi. Tablice używają gridu, symbole kolejności `position`, a `linkedBoardId` może wskazać globalnie unikalną tablicę w tej samej lub innej lokalnej księdze.
 
-Developer preview pozwala lokalnie dodać i edytować symbole oraz aktywować je w trybie dziecka kliknięciem, dotykiem, klawiaturą albo opcjonalnym dwell. Jedna nazwa jest podpisem i tekstem odczytywanym lokalnie przez Web Speech API. Eyetracker jest traktowany jak wskaźnik. Dla książek z repozytorium działają przejścia `linkedBoardId`, powrót oraz przejście do tablicy głównej.
+Home zarządza całymi księgami. Pozwala je tworzyć bez wymaganej nazwy, otwierać, zmieniać nazwę, usuwać oraz lokalnie importować i eksportować. Prezentacyjny fallback pustej nazwy to „Księga bez tytułu”. Karta używa tymczasowej miniatury PNG pierwszego dostępnego obrazu z głównej tablicy; PNG nie jest zapisywany w IndexedDB.
 
-Pierwszym ekranem aplikacji jest `Home / CommunicationBook Library`. Zarządza całymi książkami komunikacyjnymi, nie pojedynczymi tablicami. Pozwala utworzyć książkę z opcjonalną nazwą, otworzyć ją i przejść do jej tablic. Sekcja „Ostatnio używane” jest renderowana wyłącznie wtedy, gdy lista książek nie jest pusta. `CommunicationBook` jest jednostką działającego, lokalnego importu i eksportu.
+Istniejąca tablica otwiera się w `use`, a nowo utworzona w `edit`. Tryb `use` pozwala przełączyć bieżącą tablicę do edycji. Tryb `edit` nie pokazuje niezaimplementowanych Undo/Redo. Lista księgi zawsze udostępnia akcję „+ Dodaj tablicę”.
 
-Tryb developerski udostępnia pięć syntetycznych fixtures: „Posiłki”, „Szkoła”, „Jak się czuję”, „Zabawa” i „Wizyta u lekarza”. Nie są to dane startowe produktu i nigdy nie są dodawane automatycznie użytkownikowi. Zawarte grafiki są prostymi `synthetic demo assets`, a nie profesjonalnym zestawem symboli AAC.
+SymbolInspector pozwala połączyć symbol z dowolną inną lokalną tablicą. Opcje pokazują nazwę tablicy i księgi. Może też utworzyć nową tablicę w aktualnej księdze i natychmiast przypisać jej ID do wybranego symbolu. Historia `Wróć` zachowuje `bookId` i `boardId`; „Tablica główna” odnosi się do aktualnej, również docelowej księgi.
 
-Edytor tablicy udostępnia `BoardSettings v1` dla liczby kolumn, domyślnego dwell time oraz domyślnego wyglądu nowych symboli. Nazwa pozostaje edytowana inline, a wybór tablicy głównej należy do poziomu CommunicationBook. Zmiana defaults nie resetuje istniejących symboli. Zmiany książek otwartych z biblioteki są kolejkowane do lokalnego Repository.
-
-PWA v1 pozwala po pierwszym uruchomieniu online ponownie otworzyć app shell bez sieci oraz korzystać z lokalnie zapisanych książek, obrazów, edycji i nawigacji między tablicami. Instalacja korzysta z natywnego mechanizmu przeglądarki; aplikacja nie pokazuje własnej obietnicy instalacji, gdy przeglądarka jej nie wspiera. Synteza mowy offline zależy od głosów dostępnych lokalnie w systemie i nie jest gwarantowana przez service worker.
+Aktywacja symbolu działa kliknięciem, dotykiem, Enter, Space lub dwell. Mowa korzysta z Web Speech API. Repository/IndexedDB zapewnia lokalny zapis, PWA app shell działa offline po pierwszym poprawnym uruchomieniu online, a fixtures są dostępne tylko po jawnej akcji developerskiej.

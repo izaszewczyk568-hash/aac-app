@@ -63,7 +63,7 @@ export interface ExistingIds {
 
 const invalidFormat = () => new BookTransferError(
   'invalid-format',
-  'Plik nie zawiera poprawnej kopii książki AAC.',
+  'Plik nie zawiera poprawnej kopii księgi AAC.',
 )
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -91,6 +91,12 @@ function requireNonBlankId(record: Record<string, unknown>, key: string): string
 function requireNullableString(record: Record<string, unknown>, key: string): string | null {
   const value = record[key]
   if (value !== null && typeof value !== 'string') throw invalidFormat()
+  return value
+}
+
+function requireNullableId(record: Record<string, unknown>, key: string): string | null {
+  const value = requireNullableString(record, key)
+  if (value !== null && !value.trim()) throw invalidFormat()
   return value
 }
 
@@ -131,7 +137,7 @@ function validateSymbol(value: unknown): SymbolModel {
     borderColor: requireString(value, 'borderColor'),
     textColor: requireString(value, 'textColor'),
     borderWidth,
-    linkedBoardId: requireNullableString(value, 'linkedBoardId'),
+    linkedBoardId: requireNullableId(value, 'linkedBoardId'),
     dwellTime: dwellTime as number | null,
     createdAt: requireString(value, 'createdAt'),
     updatedAt: requireString(value, 'updatedAt'),
@@ -190,14 +196,14 @@ function validateRelations(book: CommunicationBook): void {
   assertUnique(symbols.flatMap((symbol) => symbol.image ? [symbol.image.id] : []))
 
   if (book.mainBoardId !== null && !boardIdSet.has(book.mainBoardId)) {
-    throw new BookTransferError('invalid-relations', 'Główna tablica nie istnieje w importowanej książce.')
+    throw new BookTransferError('invalid-relations', 'Główna tablica nie istnieje w importowanej księdze.')
   }
   for (const board of book.boards) {
     if (board.communicationBookId !== book.id) {
-      throw new BookTransferError('invalid-relations', 'Tablica wskazuje inną książkę.')
+      throw new BookTransferError('invalid-relations', 'Tablica wskazuje inną księgę.')
     }
     for (const symbol of board.symbols) {
-      if (symbol.boardId !== board.id || (symbol.linkedBoardId !== null && !boardIdSet.has(symbol.linkedBoardId))) {
+      if (symbol.boardId !== board.id) {
         throw new BookTransferError('invalid-relations', 'Plik zawiera uszkodzone połączenie między tablicami.')
       }
     }
@@ -305,7 +311,9 @@ export function remapConflictingIds(
       ...symbol,
       id: symbolMap.get(symbol.id)!,
       boardId: boardMap.get(board.id)!,
-      linkedBoardId: symbol.linkedBoardId === null ? null : boardMap.get(symbol.linkedBoardId)!,
+      linkedBoardId: symbol.linkedBoardId === null
+        ? null
+        : boardMap.get(symbol.linkedBoardId) ?? symbol.linkedBoardId,
       image: symbol.image ? { ...symbol.image, id: imageMap.get(symbol.image.id)! } : null,
     })),
   }))
@@ -350,7 +358,7 @@ export function createSafeBackupFileName(name: string): string {
   const normalized = name.trim().replace(/ł/g, 'l').replace(/Ł/g, 'L')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-  return `${normalized || 'Ksiazka-AAC'}${AAC_BOOK_EXTENSION}`
+  return `${normalized || 'Ksiega-AAC'}${AAC_BOOK_EXTENSION}`
 }
 
 export async function parseBookBackup(file: Blob): Promise<ImportedBook> {
@@ -362,7 +370,7 @@ export async function parseBookBackup(file: Blob): Promise<ImportedBook> {
   try {
     parsed = JSON.parse(await readBlobAsText(file))
   } catch {
-    throw new BookTransferError('invalid-json', 'Nie udało się odczytać pliku kopii książki.')
+    throw new BookTransferError('invalid-json', 'Nie udało się odczytać pliku kopii księgi.')
   }
   if (!isRecord(parsed)) throw invalidFormat()
   if (!Object.hasOwn(parsed, 'schemaVersion')) {
@@ -370,10 +378,10 @@ export async function parseBookBackup(file: Blob): Promise<ImportedBook> {
   }
   if (typeof parsed.schemaVersion !== 'number' || !Number.isInteger(parsed.schemaVersion)) throw invalidFormat()
   if (parsed.schemaVersion > CURRENT_SCHEMA_VERSION) {
-    throw new BookTransferError('newer-schema-version', 'Ta książka została utworzona w nowszej wersji aplikacji.')
+    throw new BookTransferError('newer-schema-version', 'Ta księga została utworzona w nowszej wersji aplikacji.')
   }
   if (parsed.schemaVersion < CURRENT_SCHEMA_VERSION) {
-    throw new BookTransferError('unsupported-schema-version', 'Ta wersja kopii książki nie jest jeszcze obsługiwana.')
+    throw new BookTransferError('unsupported-schema-version', 'Ta wersja kopii księgi nie jest jeszcze obsługiwana.')
   }
   if (parsed.format !== 'aacbook' || parsed.formatVersion !== AAC_BOOK_FORMAT_VERSION || !Array.isArray(parsed.images)) {
     throw invalidFormat()
@@ -395,7 +403,7 @@ export async function parseBookBackup(file: Blob): Promise<ImportedBook> {
     images.set(id, base64ToBlob(data, mimeType))
   }
   if (images.size !== imageReferences.size) {
-    throw new BookTransferError('missing-image', 'Plik nie zawiera wszystkich obrazów książki.')
+    throw new BookTransferError('missing-image', 'Plik nie zawiera wszystkich obrazów księgi.')
   }
   return { book, images }
 }
@@ -408,7 +416,7 @@ export async function importBookBackup(
 ): Promise<ImportedBook> {
   const supportedMimeTypes = ['', AAC_BOOK_MIME_TYPE, 'application/json', 'application/octet-stream']
   if (!file.name.toLowerCase().endsWith(AAC_BOOK_EXTENSION) || !supportedMimeTypes.includes(file.type)) {
-    throw new BookTransferError('unsupported-file', 'Wybierz plik kopii książki z rozszerzeniem .aacbook.')
+    throw new BookTransferError('unsupported-file', 'Wybierz plik kopii księgi z rozszerzeniem .aacbook.')
   }
   const existingIds = collectExistingIds(existingBooks)
   for (const imageId of existingImageIds) existingIds.imageIds.add(imageId)

@@ -24,6 +24,7 @@ export interface BoardProps {
   backLabel?: string
   onGoToMain?: () => void
   onStartUse?: () => void
+  onStartEdit?: () => void
   onAddSymbol?: () => void
   onRepeat?: () => void
   canRepeat?: boolean
@@ -62,6 +63,7 @@ export function Board({
   backLabel = 'Strona główna',
   onGoToMain,
   onStartUse,
+  onStartEdit,
   onAddSymbol,
   onRepeat,
   canRepeat = false,
@@ -183,6 +185,9 @@ export function Board({
           <button type="button" onClick={onRepeat} disabled={!canRepeat}>
             Powtórz
           </button>
+          <button type="button" onClick={onStartEdit} disabled={!onStartEdit}>
+            Edytuj tablicę
+          </button>
           <button
             type="button"
             className="board__primary board__fullscreen"
@@ -197,14 +202,6 @@ export function Board({
 
         {isEditMode && (
           <div className="board__edit-actions">
-            <div className="board__history-actions" aria-label="Historia zmian">
-              <button type="button" aria-label="Cofnij" disabled>
-                ↶
-              </button>
-              <button type="button" aria-label="Ponów" disabled>
-                ↷
-              </button>
-            </div>
             <p
               className={`board__save-status board__save-status--${saveStatus}`}
               role="status"

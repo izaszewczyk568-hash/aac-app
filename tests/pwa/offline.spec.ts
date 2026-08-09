@@ -49,7 +49,7 @@ function backup() {
     communicationBook: {
       schemaVersion: 4,
       id: 'pwa-book',
-      name: 'Książka offline',
+      name: 'Księga offline',
       mainBoardId: 'pwa-main',
       boards: [board('pwa-main', 'Start', [symbol]), board('pwa-second', 'Druga tablica')],
       createdAt: now,
@@ -98,32 +98,32 @@ test('manifest and versioned app shell cache are complete and scoped', async ({ 
 test('imported book, image, editing and linked-board navigation work offline', async ({ page, context }) => {
   await page.goto('/')
   await ensureServiceWorkerControls(page)
-  await page.getByLabel('Wybierz plik kopii książki AAC').setInputFiles({
+  await page.getByLabel('Wybierz plik kopii księgi AAC').setInputFiles({
     name: 'offline.aacbook',
     mimeType: 'application/vnd.aacbook+json',
     buffer: Buffer.from(JSON.stringify(backup())),
   })
-  await expect(page.getByRole('heading', { name: 'Książka offline' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Księga offline' }).first()).toBeVisible()
 
   await context.setOffline(true)
   try {
     await page.reload()
-    await expect(page.getByRole('heading', { name: 'Rozpocznij pracę z książką AAC' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Książka offline' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Rozpocznij pracę z Księgą AAC' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Księga offline' })).toBeVisible()
     await page.evaluate(() => window.dispatchEvent(new Event('offline')))
     await expect(page.getByText('Pracujesz offline')).toBeVisible()
-    await page.getByRole('button', { name: 'Otwórz książkę Książka offline' }).click()
+    await page.getByRole('button', { name: 'Otwórz księgę Księga offline' }).click()
     await page.getByRole('button', { name: 'Start' }).click()
     await expect(page.locator('.symbol-tile__image')).toBeVisible()
 
+    await page.getByRole('button', { name: 'Edytuj tablicę' }).click()
     const nameInput = page.getByRole('textbox', { name: 'Nazwa tablicy' })
     await nameInput.fill('Start offline')
     await expect(page.getByText('Zapisano wszystkie zmiany')).toBeVisible()
 
     await page.reload()
-    await page.getByRole('button', { name: 'Otwórz książkę Książka offline' }).click()
+    await page.getByRole('button', { name: 'Otwórz księgę Księga offline' }).click()
     await page.getByRole('button', { name: 'Start offline' }).click()
-    await page.getByRole('button', { name: 'Uruchom tablicę' }).click()
     await page.getByRole('button', { name: 'Przejdź dalej' }).click()
     await expect(page.getByRole('heading', { name: 'Druga tablica' })).toBeVisible()
   } finally {

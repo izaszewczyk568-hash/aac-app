@@ -1,10 +1,13 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import { ImageProcessingError } from './features/images/processImage'
 import type { SpeechService } from './features/speech/speechService'
 import { MemoryCommunicationBookRepository } from './data/communicationBookRepository'
 import { createDemoBookBundles } from './demo/communicationBookFixtures'
+import { createBoard, createCommunicationBook, createSymbol } from './domain/communicationBook'
+import { AAC_BOOK_MIME_TYPE, createBookBackup } from './features/bookTransfer/bookTransfer'
+import type { OpenedBoardTab } from './App'
 
 const processedImage = {
   blob: new Blob(['optimized'], { type: 'image/webp' }),
@@ -22,42 +25,212 @@ function selectImage(fileName = 'symbol.png') {
   })
 }
 
+function crossBookFixture() {
+  const boardA = createBoard({
+    id: 'board-a1',
+    communicationBookId: 'book-a',
+    name: 'Start A',
+    symbols: [createSymbol({
+      id: 'symbol-cross',
+      boardId: 'board-a1',
+      label: 'Przejdź do B',
+      position: 0,
+      linkedBoardId: 'board-b1',
+    })],
+  })
+  const boardB1 = createBoard({ id: 'board-b1', communicationBookId: 'book-b', name: 'Cel B' })
+  const boardB2 = createBoard({ id: 'board-b2', communicationBookId: 'book-b', name: 'Główna B' })
+  return [
+    createCommunicationBook({ id: 'book-a', name: 'Księga A', boards: [boardA], mainBoardId: boardA.id }),
+    createCommunicationBook({ id: 'book-b', name: 'Księga B', boards: [boardB1, boardB2], mainBoardId: boardB2.id }),
+  ]
+}
+
+function boardTabMock() {
+  const tab: OpenedBoardTab = {
+    navigate: vi.fn(),
+    close: vi.fn(),
+  }
+  return { tab, openBoardTab: vi.fn(() => tab) }
+}
+
 describe('App', () => {
   function speechMock(): SpeechService {
     return { speak: vi.fn<SpeechService['speak']>(() => 'spoken'), stop: vi.fn(), isSupported: vi.fn(() => true) }
   }
 
   it('creates and opens an unnamed CommunicationBook from Home', async () => {
-    render(<App initialView="home" />)
-    fireEvent.click(screen.getByRole('button', { name: '+ Utwórz nową książkę' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Utwórz książkę' }))
+    const { tab, openBoardTab } = boardTabMock()
+    render(<App initialView="home" openBoardTab={openBoardTab} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Utwórz nową księgę' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Utwórz księgę' }))
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Książka bez tytułu' })).toBeInTheDocument()
-    expect(screen.getByText('Ta książka nie ma jeszcze tablic.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Księga bez tytułu' })).toBeInTheDocument()
+    expect(screen.getByText('Ta księga nie ma jeszcze tablic.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '← Wróć do strony głównej' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '+ Utwórz pierwszą tablicę' }))
-    const backToBook = await screen.findByRole('button', { name: '← Wróć do książki' })
-    fireEvent.click(backToBook)
-    expect(screen.getByRole('heading', { level: 1, name: 'Książka bez tytułu' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '+ Dodaj tablicę' }))
+    await waitFor(() => expect(tab.navigate).toHaveBeenCalledOnce())
+    expect(openBoardTab).toHaveBeenCalledOnce()
+    expect(vi.mocked(tab.navigate).mock.calls[0][0]).toMatch(/[?&]book=.+&board=.+&mode=edit/)
+    expect(screen.getByRole('heading', { level: 1, name: 'Księga bez tytułu' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tablica bez tytułu' })).toBeInTheDocument()
+  })
+
+  it('shows a transient import toast and a session-only added-book section', async () => {
+    const repository = new MemoryCommunicationBookRepository()
+    const importedBook = createCommunicationBook({ id: 'imported-book', name: 'Import test' })
+    const backup = await createBookBackup(importedBook, new Map())
+    render(<App initialView="home" repository={repository} />)
+    fireEvent.change(screen.getByLabelText('Wybierz plik kopii księgi AAC'), {
+      target: { files: [new File([backup], 'import.aacbook', { type: AAC_BOOK_MIME_TYPE })] },
+    })
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Księga została zaimportowana'))
+    expect(screen.getByRole('heading', { name: 'Dodana księga' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument(), { timeout: 5000 })
+    expect((await repository.listBooks()).some((book) => book.id === 'imported-book')).toBe(true)
+  })
+
+  it('renames immediately and safely deletes the selected book through Repository', async () => {
+    const repository = new MemoryCommunicationBookRepository()
+    const original = createCommunicationBook({ id: 'rename-book', name: 'Stara nazwa' })
+    const other = createCommunicationBook({ id: 'other-book', name: 'Inna księga' })
+    await repository.saveBundles([{ book: original, images: new Map() }, { book: other, images: new Map() }])
+    render(<App initialView="home" repository={repository} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Więcej opcji księgi Stara nazwa' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Edytuj księgę Stara nazwa' }))
+    fireEvent.change(screen.getByLabelText('Nazwa księgi'), { target: { value: 'Nowa nazwa' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Zapisz nazwę' }))
+    expect(screen.getByRole('heading', { name: 'Nowa nazwa' })).toBeInTheDocument()
+    await new Promise((resolve) => window.setTimeout(resolve, 350))
+    expect((await repository.listBooks()).find((book) => book.id === original.id)?.name).toBe('Nowa nazwa')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Więcej opcji księgi Nowa nazwa' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Usuń księgę Nowa nazwa' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Usuń księgę' }))
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Nowa nazwa' })).not.toBeInTheDocument())
+    await new Promise((resolve) => window.setTimeout(resolve, 350))
+    expect((await repository.listBooks()).map((book) => book.id)).toEqual(['other-book'])
+  })
+
+  it('keeps the add Board action and opens existing Boards in use mode', async () => {
+    const repository = new MemoryCommunicationBookRepository()
+    const boards = ['A', 'B', 'C'].map((name, index) => createBoard({
+      id: `board-${index}`,
+      communicationBookId: 'book-abc',
+      name,
+    }))
+    const book = createCommunicationBook({ id: 'book-abc', name: 'Księga ABC', boards, mainBoardId: boards[0].id })
+    await repository.saveBundles([{ book, images: new Map() }])
+    const { tab, openBoardTab } = boardTabMock()
+    render(<App initialView="home" repository={repository} openBoardTab={openBoardTab} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Otwórz księgę Księga ABC' }))
+    expect(screen.getByRole('button', { name: '+ Dodaj tablicę' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '+ Dodaj tablicę' }))
+    await waitFor(() => expect(tab.navigate).toHaveBeenCalledOnce())
+    expect(screen.getByRole('button', { name: '+ Dodaj tablicę' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'A' }))
+    expect(await screen.findByRole('heading', { level: 1, name: 'A' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Nazwa tablicy' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Edytuj tablicę' }))
+    expect(screen.getByRole('textbox', { name: 'Nazwa tablicy' })).toHaveValue('A')
+    expect(screen.queryByRole('button', { name: 'Cofnij' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ponów' })).not.toBeInTheDocument()
   })
 
   it('loads seeded books through the repository and navigates the Posiłki graph in use mode', async () => {
     const repository = new MemoryCommunicationBookRepository()
     await repository.saveBundles(await createDemoBookBundles(() => Promise.resolve(new Blob(['png'], { type: 'image/png' }))))
     const speechService = speechMock()
-    render(<App initialView="home" repository={repository} createImageUrl={(blob) => `blob:fixture-${blob.size}`} speechService={speechService} />)
+    render(<App initialView="home" repository={repository} createImageUrl={(blob) => `blob:fixture-${blob.size}`} thumbnailProcessor={(blob) => Promise.resolve(new Blob([blob], { type: 'image/png' }))} speechService={speechService} />)
 
-    const openMeals = await screen.findByRole('button', { name: 'Otwórz książkę Posiłki' })
+    const openMeals = await screen.findByRole('button', { name: 'Otwórz księgę Posiłki' })
     fireEvent.click(openMeals)
     fireEvent.click(screen.getByRole('button', { name: 'Główna' }))
-    await screen.findByRole('textbox', { name: 'Nazwa tablicy' })
-    fireEvent.click(screen.getByRole('radio', { name: 'Use' }))
+    await screen.findByRole('heading', { level: 1, name: 'Główna' })
     fireEvent.click(screen.getByRole('button', { name: 'Jedzenie' }))
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Jedzenie' }, { timeout: 1500 })).toBeInTheDocument()
     expect(speechService.speak).toHaveBeenCalledWith('Jedzenie')
     fireEvent.click(screen.getByRole('button', { name: '← Wróć' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Główna' })).toBeInTheDocument()
+  })
+
+  it('offers cross-book targets and navigates with book-aware Back and Main Board', async () => {
+    const repository = new MemoryCommunicationBookRepository()
+    const [bookA, bookB] = crossBookFixture()
+    await repository.saveBundles([
+      { book: bookA, images: new Map() },
+      { book: bookB, images: new Map() },
+    ])
+    render(<App initialView="home" repository={repository} speechService={speechMock()} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Otwórz księgę Księga A' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start A' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Edytuj tablicę' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Wybierz symbol: Przejdź do B' }))
+    expect(screen.getByRole('option', { name: 'Cel B — Księga B' })).toHaveValue('board-b1')
+    expect(screen.getByRole('option', { name: 'Główna B — Księga B' })).toHaveValue('board-b2')
+    expect(screen.queryByRole('option', { name: 'Start A — Księga A' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Uruchom tablicę' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Przejdź do B' }))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Cel B' }, { timeout: 1500 })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '← Wróć' }))
+    expect(screen.getByRole('heading', { level: 1, name: 'Start A' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Przejdź do B' }))
+    await screen.findByRole('heading', { level: 1, name: 'Cel B' }, { timeout: 1500 })
+    fireEvent.click(screen.getByRole('button', { name: 'Tablica główna' }))
+    expect(screen.getByRole('heading', { level: 1, name: 'Główna B' })).toBeInTheDocument()
+  })
+
+  it('creates a linked Board in the current book and persists the selected Symbol link', async () => {
+    const repository = new MemoryCommunicationBookRepository()
+    const [bookA] = crossBookFixture()
+    await repository.saveBundles([{ book: bookA, images: new Map() }])
+    const { tab, openBoardTab } = boardTabMock()
+    render(<App initialView="home" repository={repository} speechService={speechMock()} openBoardTab={openBoardTab} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Otwórz księgę Księga A' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start A' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Edytuj tablicę' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Wybierz symbol: Przejdź do B' }))
+    fireEvent.click(screen.getByRole('button', { name: '+ Utwórz nową tablicę' }))
+    const createDialog = screen.getByRole('dialog', { name: 'Utwórz nową tablicę' })
+    fireEvent.change(within(createDialog).getByLabelText('Nazwa tablicy'), { target: { value: 'Nowa tablica' } })
+    fireEvent.click(within(createDialog).getByRole('button', { name: 'Utwórz tablicę' }))
+
+    const selectedOption = screen.getByRole('option', { name: 'Nowa tablica — Księga A' })
+    expect(selectedOption).toHaveProperty('selected', true)
+    await new Promise((resolve) => window.setTimeout(resolve, 350))
+    const [stored] = await repository.listBooks()
+    const linkedSymbol = stored.boards.find((candidate) => candidate.id === 'board-a1')?.symbols[0]
+    const newBoard = stored.boards.find((candidate) => candidate.name === 'Nowa tablica')
+    expect(newBoard).toBeDefined()
+    expect(linkedSymbol?.linkedBoardId).toBe(newBoard?.id)
+    await waitFor(() => expect(tab.navigate).toHaveBeenCalledOnce())
+    expect(vi.mocked(tab.navigate).mock.calls[0][0]).toContain(`board=${newBoard?.id}`)
+    expect(vi.mocked(tab.navigate).mock.calls[0][0]).toContain('mode=edit')
+  })
+
+  it('opens a persisted Board route directly in edit mode', async () => {
+    const repository = new MemoryCommunicationBookRepository()
+    const directBoard = createBoard({ id: 'direct-board', communicationBookId: 'direct-book', name: 'Nowa karta' })
+    const directBook = createCommunicationBook({ id: 'direct-book', name: 'Księga', boards: [directBoard], mainBoardId: directBoard.id })
+    await repository.saveBundles([{ book: directBook, images: new Map() }])
+    window.history.replaceState({}, '', '/?book=direct-book&board=direct-board&mode=edit')
+
+    try {
+      render(<App initialView="home" repository={repository} />)
+      expect(await screen.findByRole('textbox', { name: 'Nazwa tablicy' })).toHaveValue('Nowa karta')
+      expect(screen.getByRole('button', { name: 'Uruchom tablicę' })).toBeInTheDocument()
+    } finally {
+      window.history.replaceState({}, '', '/')
+    }
   })
   it('przełącza demonstrację Board między trybem edit i use', () => {
     render(<App />)

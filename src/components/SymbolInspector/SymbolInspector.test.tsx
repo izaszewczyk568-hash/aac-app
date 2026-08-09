@@ -15,9 +15,10 @@ function makeSymbol() {
 }
 
 const boards = [
-  { id: 'board-current', name: 'Jedzenie' },
-  { id: 'board-drinks', name: 'Picie' },
-  { id: 'board-empty', name: '   ' },
+  { id: 'board-current', name: 'Jedzenie', bookName: 'Posiłki' },
+  { id: 'board-drinks', name: 'Picie', bookName: 'Posiłki' },
+  { id: 'board-school', name: 'Picie', bookName: 'Szkoła' },
+  { id: 'board-empty', name: '   ', bookName: '   ' },
 ]
 
 describe('SymbolInspector', () => {
@@ -52,14 +53,18 @@ describe('SymbolInspector', () => {
 
     const linkSelect = screen.getByLabelText('Połącz z tablicą')
     expect(screen.queryByRole('option', { name: 'Jedzenie' })).not.toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Picie' })).toHaveValue('board-drinks')
-    expect(screen.getByRole('option', { name: 'Tablica bez tytułu' })).toHaveValue('board-empty')
+    expect(screen.getByRole('option', { name: 'Picie — Posiłki' })).toHaveValue('board-drinks')
+    expect(screen.getByRole('option', { name: 'Picie — Szkoła' })).toHaveValue('board-school')
+    expect(screen.getByRole('option', { name: 'Tablica bez tytułu — Księga bez tytułu' })).toHaveValue('board-empty')
     fireEvent.change(linkSelect, { target: { value: 'board-drinks' } })
     fireEvent.change(linkSelect, { target: { value: '' } })
     expect(onChange).toHaveBeenCalledWith({ linkedBoardId: 'board-drinks' })
     expect(onChange).toHaveBeenCalledWith({ linkedBoardId: null })
     fireEvent.click(screen.getByRole('button', { name: '+ Utwórz nową tablicę' }))
-    expect(onCreateLinkedBoard).toHaveBeenCalledOnce()
+    expect(screen.getByRole('dialog', { name: 'Utwórz nową tablicę' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Nazwa tablicy'), { target: { value: 'Nowa tablica' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Utwórz tablicę' }))
+    expect(onCreateLinkedBoard).toHaveBeenCalledWith('Nowa tablica')
 
     const dwell = screen.getByLabelText('Czas zatwierdzenia wzrokiem')
     expect(Array.from((dwell as HTMLSelectElement).options).map((option) => option.value)).toEqual(['', '500', '1000', '1500', '2000', '3000'])

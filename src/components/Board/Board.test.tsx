@@ -72,8 +72,8 @@ describe('Board', () => {
     fireEvent.click(startButton)
     expect(onStartUse).toHaveBeenCalledOnce()
     expect(screen.getByText('Zapisano wszystkie zmiany')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cofnij' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Ponów' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Cofnij' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ponów' })).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Pełny ekran' }),
     ).not.toBeInTheDocument()
@@ -120,13 +120,15 @@ describe('Board', () => {
     expect(screen.queryByText('Usuń tablicę')).not.toBeInTheDocument()
   })
 
-  it('provides only home and full-screen actions in the use toolbar', () => {
+  it('provides navigation, editing and full-screen actions in the use toolbar', () => {
     const onBack = vi.fn()
+    const onStartEdit = vi.fn()
     render(
       <Board
         board={makeBoard()}
         mode="use"
         onBack={onBack}
+        onStartEdit={onStartEdit}
       />,
     )
 
@@ -135,14 +137,16 @@ describe('Board', () => {
     expect(onBack).toHaveBeenCalledOnce()
     expect(screen.getByRole('button', { name: 'Pełny ekran' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Powtórz' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Edytuj tablicę' }))
+    expect(onStartEdit).toHaveBeenCalledOnce()
     expect(screen.queryByLabelText('Więcej opcji tablicy')).not.toBeInTheDocument()
   })
 
   it('uses a contextual back label supplied by the parent view', () => {
     const onBack = vi.fn()
-    render(<Board board={makeBoard()} mode="edit" onBack={onBack} backLabel="Wróć do książki" />)
+    render(<Board board={makeBoard()} mode="edit" onBack={onBack} backLabel="Wróć do księgi" />)
 
-    fireEvent.click(screen.getByRole('button', { name: '← Wróć do książki' }))
+    fireEvent.click(screen.getByRole('button', { name: '← Wróć do księgi' }))
     expect(onBack).toHaveBeenCalledOnce()
   })
 

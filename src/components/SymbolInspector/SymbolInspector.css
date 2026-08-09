@@ -1,9 +1,10 @@
 .symbol-inspector {
   position: fixed;
   z-index: 10;
-  width: min(22rem, calc(100vw - var(--space-32)));
+  width: min(28rem, calc(100vw - var(--space-32)));
   max-height: calc(100vh - var(--space-32));
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: var(--space-16);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-8);
@@ -24,8 +25,14 @@
 .symbol-inspector p { margin: 0; }
 .symbol-inspector h2 { font-size: 1.25rem; }
 
+.symbol-inspector__header button {
+  flex: 0 0 2.75rem;
+  width: 2.75rem;
+}
+
 .symbol-inspector__fields {
   display: grid;
+  min-width: 0;
   gap: var(--space-16);
   margin: var(--space-16) 0;
 }
@@ -33,6 +40,7 @@
 .symbol-inspector label,
 .symbol-inspector__field-group {
   display: grid;
+  min-width: 0;
   gap: var(--space-8);
   font-weight: 700;
 }
@@ -40,6 +48,9 @@
 .symbol-inspector input,
 .symbol-inspector select,
 .symbol-inspector button {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 2.75rem;
   padding: var(--space-8);
   border: 1px solid var(--color-border-strong);
@@ -52,7 +63,7 @@
 .symbol-inspector input[type='color'] { width: 100%; }
 .symbol-inspector input[type='range'] { width: 100%; }
 .symbol-inspector :focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
-.symbol-inspector__help { color: var(--color-text-secondary); font-size: .875rem; font-weight: 400; }
+.symbol-inspector__help { overflow-wrap: anywhere; color: var(--color-text-secondary); font-size: .875rem; font-weight: 400; }
 .symbol-inspector__danger { border-color: var(--color-danger) !important; color: var(--color-danger) !important; font-weight: 700; }
 
 .symbol-inspector__dialog-backdrop {
@@ -67,6 +78,8 @@
 
 .symbol-inspector__dialog {
   width: min(28rem, 100%);
+  max-height: calc(100vh - var(--space-32));
+  overflow: auto;
   display: grid;
   gap: var(--space-16);
   padding: var(--space-24);
@@ -74,6 +87,24 @@
   background: var(--color-surface);
 }
 
+.symbol-inspector__dialog form {
+  display: grid;
+  gap: var(--space-16);
+}
+
+.symbol-inspector__dialog form > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}
+
 @media (max-width: 48rem) {
-  .symbol-inspector { left: var(--space-16) !important; right: var(--space-16); bottom: var(--space-16); top: auto !important; }
+  .symbol-inspector {
+    right: var(--space-16);
+    bottom: var(--space-16);
+    left: var(--space-16) !important;
+    width: auto;
+    max-height: calc(100vh - var(--space-32));
+    top: auto !important;
+  }
 }

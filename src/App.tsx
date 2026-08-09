@@ -9,6 +9,10 @@ import {
   processImageFile,
   type ProcessedImage,
 } from './features/images/processImage'
+import {
+  createBookThumbnailPng,
+  findBookThumbnailImageId,
+} from './features/images/createBookThumbnail'
 import { browserSpeechService, type SpeechService } from './features/speech/speechService'
 import {
   BookTransferError,
@@ -40,32 +44,82 @@ const demoBoards = [
   { id: 'demo-untitled', name: '' },
 ]
 
+interface BoardRoute {
+  bookId: string
+  boardId: string
+  mode: BoardMode
+}
+
+export interface OpenedBoardTab {
+  navigate: (url: string) => void
+  close: () => void
+}
+
+function readBoardRoute(): BoardRoute | null {
+  if (typeof window === 'undefined') return null
+  const parameters = new URLSearchParams(window.location.search)
+  const bookId = parameters.get('book')
+  const boardId = parameters.get('board')
+  if (!bookId || !boardId) return null
+  return {
+    bookId,
+    boardId,
+    mode: parameters.get('mode') === 'use' ? 'use' : 'edit',
+  }
+}
+
+function createBoardUrl(bookId: string, boardId: string): string {
+  const url = new URL(window.location.href)
+  url.searchParams.delete('pwa')
+  url.searchParams.set('book', bookId)
+  url.searchParams.set('board', boardId)
+  url.searchParams.set('mode', 'edit')
+  url.hash = ''
+  return url.toString()
+}
+
+function openBlankBoardTab(): OpenedBoardTab | null {
+  const openedWindow = window.open('about:blank', '_blank')
+  if (!openedWindow) return null
+  openedWindow.opener = null
+  return {
+    navigate: (url) => openedWindow.location.replace(url),
+    close: () => openedWindow.close(),
+  }
+}
+
 export interface AppProps {
   imageProcessor?: (file: File) => Promise<ProcessedImage>
+  thumbnailProcessor?: (blob: Blob) => Promise<Blob>
   createImageUrl?: (blob: Blob) => string
   speechService?: SpeechService
   onNavigateToBoard?: (boardId: string) => void
   initialView?: 'home' | 'board'
   repository?: CommunicationBookRepository
+  openBoardTab?: () => OpenedBoardTab | null
 }
 
 export function App({
   imageProcessor = processImageFile,
+  thumbnailProcessor = createBookThumbnailPng,
   createImageUrl = (blob) => URL.createObjectURL(blob),
   speechService = browserSpeechService,
   onNavigateToBoard,
   initialView = 'board',
   repository,
+  openBoardTab = openBlankBoardTab,
 }: AppProps = {}) {
   const [view, setView] = useState<'home' | 'book' | 'board'>(initialView)
   const [books, setBooks] = useState<CommunicationBook[]>([])
   const [openedBookId, setOpenedBookId] = useState<string | null>(null)
-  const [boardHistory, setBoardHistory] = useState<string[]>([])
+  const [boardHistory, setBoardHistory] = useState<Array<{ bookId: string; boardId: string }>>([])
   const [mode, setMode] = useState<BoardMode>('edit')
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
   const [board, setBoard] = useState(demoBoard)
   const [selectedSymbolId, setSelectedSymbolId] = useState<string | null>(null)
   const [imageSources, setImageSources] = useState<Record<string, string>>({})
+  const [thumbnailSources, setThumbnailSources] = useState<Record<string, string>>({})
+  const [addedBookId, setAddedBookId] = useState<string | null>(null)
   const [imageError, setImageError] = useState<string | null>(null)
   const [isProcessingImage, setIsProcessingImage] = useState(false)
   const [demoMessage, setDemoMessage] = useState<string | null>(null)
@@ -77,14 +131,53 @@ export function App({
   const [lastSpokenText, setLastSpokenText] = useState<string | null>(null)
   const speechWarningShownRef = useRef(false)
   const navigationTimersRef = useRef<number[]>([])
+  const importToastTimerRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const createdImageUrlsRef = useRef<string[]>([])
+  const thumbnailUrlsRef = useRef(new Map<string, string>())
+  const thumbnailImageIdsRef = useRef(new Map<string, string>())
+  const thumbnailRevisionRef = useRef(new Map<string, number>())
   const imageBlobsRef = useRef(new Map<string, Blob>())
   const repositoryRef = useRef(repository ?? createCommunicationBookRepository())
   const autosaveRef = useRef(new AutosaveCoordinator())
   const saveRevisionRef = useRef(0)
+  const requestedBoardRouteRef = useRef(readBoardRoute())
   const dataRepository = repositoryRef.current
   const createImageUrlRef = useRef(createImageUrl)
+
+  const refreshBookThumbnail = useCallback(async (book: CommunicationBook) => {
+    const imageId = findBookThumbnailImageId(book, new Set(imageBlobsRef.current.keys()))
+    if (imageId && thumbnailImageIdsRef.current.get(book.id) === imageId) return
+
+    const revision = (thumbnailRevisionRef.current.get(book.id) ?? 0) + 1
+    thumbnailRevisionRef.current.set(book.id, revision)
+    const source = imageId ? imageBlobsRef.current.get(imageId) : undefined
+    if (!imageId || !source) {
+      const oldUrl = thumbnailUrlsRef.current.get(book.id)
+      if (oldUrl) URL.revokeObjectURL?.(oldUrl)
+      thumbnailUrlsRef.current.delete(book.id)
+      thumbnailImageIdsRef.current.delete(book.id)
+      setThumbnailSources((current) => {
+        const next = { ...current }
+        delete next[book.id]
+        return next
+      })
+      return
+    }
+
+    try {
+      const png = await thumbnailProcessor(source)
+      if (thumbnailRevisionRef.current.get(book.id) !== revision) return
+      const nextUrl = createImageUrlRef.current(png)
+      const oldUrl = thumbnailUrlsRef.current.get(book.id)
+      if (oldUrl) URL.revokeObjectURL?.(oldUrl)
+      thumbnailUrlsRef.current.set(book.id, nextUrl)
+      thumbnailImageIdsRef.current.set(book.id, imageId)
+      setThumbnailSources((current) => ({ ...current, [book.id]: nextUrl }))
+    } catch {
+      // A broken preview must not make the locally stored book unavailable.
+    }
+  }, [thumbnailProcessor])
 
   const hydrateBookImages = useCallback(async (storedBooks: CommunicationBook[]) => {
     const nextSources: Record<string, string> = {}
@@ -96,9 +189,10 @@ export function App({
         createdImageUrlsRef.current.push(url)
         nextSources[imageId] = url
       }
+      await refreshBookThumbnail(storedBook)
     }
     if (Object.keys(nextSources).length > 0) setImageSources((current) => ({ ...current, ...nextSources }))
-  }, [dataRepository])
+  }, [dataRepository, refreshBookThumbnail])
 
   useEffect(() => {
     let active = true
@@ -110,11 +204,24 @@ export function App({
             current.forEach((book) => merged.set(book.id, book))
             return [...merged.values()]
           })
+          const requestedRoute = requestedBoardRouteRef.current
+          const requestedBook = requestedRoute
+            ? storedBooks.find((book) => book.id === requestedRoute.bookId)
+            : undefined
+          const requestedBoard = requestedBook?.boards.find(
+            (candidate) => candidate.id === requestedRoute?.boardId,
+          )
+          if (requestedRoute && requestedBook && requestedBoard) {
+            setOpenedBookId(requestedBook.id)
+            setBoard(requestedBoard)
+            setMode(requestedRoute.mode)
+            setView('board')
+          }
           void hydrateBookImages(storedBooks)
         }
       })
       .catch(() => {
-        if (active) setDemoMessage('Nie udało się odczytać lokalnych książek.')
+        if (active) setDemoMessage('Nie udało się odczytać lokalnych ksiąg.')
       })
     return () => { active = false }
   }, [dataRepository, hydrateBookImages])
@@ -122,7 +229,9 @@ export function App({
   useEffect(
     () => () => {
       createdImageUrlsRef.current.forEach((url) => URL.revokeObjectURL?.(url))
+      thumbnailUrlsRef.current.forEach((url) => URL.revokeObjectURL?.(url))
       navigationTimersRef.current.forEach((timer) => window.clearTimeout(timer))
+      if (importToastTimerRef.current !== null) window.clearTimeout(importToastTimerRef.current)
       speechService.stop()
       autosaveRef.current.dispose()
     },
@@ -144,6 +253,7 @@ export function App({
         updatedAt: new Date().toISOString(),
       }
       scheduleBookSave(updatedBook)
+      void refreshBookThumbnail(updatedBook)
       return updatedBook
     }))
   }
@@ -280,17 +390,24 @@ export function App({
     speakSymbolText(symbol.label)
     if (!symbol.linkedBoardId) return
     const timer = window.setTimeout(() => {
-      const targetBoard = openedBook?.boards.find((candidate) => candidate.id === symbol.linkedBoardId)
+      const targetBook = visibleBooks.find((book) =>
+        book.boards.some((candidate) => candidate.id === symbol.linkedBoardId),
+      )
+      const targetBoard = targetBook?.boards.find((candidate) => candidate.id === symbol.linkedBoardId)
       const demoTarget = demoBoards.find((candidate) => candidate.id === symbol.linkedBoardId)
-      if (targetBoard && symbol.linkedBoardId) {
+      if (targetBook && targetBoard && symbol.linkedBoardId) {
         onNavigateToBoard?.(symbol.linkedBoardId)
-        setBoardHistory((current) => [...current, board.id])
+        setBoardHistory((current) => [...current, {
+          bookId: openedBookId ?? board.communicationBookId,
+          boardId: board.id,
+        }])
+        setOpenedBookId(targetBook.id)
         setBoard(targetBoard)
       } else if (demoTarget && symbol.linkedBoardId) {
         onNavigateToBoard?.(symbol.linkedBoardId)
         setDemoMessage(`Demonstracyjne przejście do tablicy: ${demoTarget.name.trim() || 'Tablica bez tytułu'}.`)
       } else {
-        setDemoMessage('Powiązana tablica nie istnieje w książce.')
+        setDemoMessage('Połączona tablica jest niedostępna.')
       }
     }, 500)
     navigationTimersRef.current.push(timer)
@@ -313,12 +430,12 @@ export function App({
     setBooks((current) => [book, ...current])
     void autosaveRef.current
       .track(dataRepository.saveBundles([{ book, images: new Map() }]))
-      .catch(() => setDemoMessage('Nie udało się zapisać nowej książki lokalnie.'))
+      .catch(() => setDemoMessage('Nie udało się zapisać nowej księgi lokalnie.'))
     setOpenedBookId(book.id)
     setView('book')
   }
 
-  async function openBoardInBook(targetBoard: typeof board) {
+  async function openBoardInBook(targetBoard: typeof board, targetMode: BoardMode = 'use') {
     const storedImages = await dataRepository.getImagesForBook(targetBoard.communicationBookId)
     const nextSources: Record<string, string> = {}
     for (const [imageId, blob] of storedImages) {
@@ -332,10 +449,37 @@ export function App({
     if (Object.keys(nextSources).length > 0) setImageSources((current) => ({ ...current, ...nextSources }))
     setBoardHistory([])
     setBoard(targetBoard)
+    setMode(targetMode)
     setView('board')
   }
 
+  async function saveCreatedBoardAndOpen(
+    updatedBook: CommunicationBook,
+    createdBoardId: string,
+    openedTab: OpenedBoardTab | null,
+  ) {
+    const revision = ++saveRevisionRef.current
+    setSaveStatus('saving')
+    try {
+      await autosaveRef.current.flush()
+      await autosaveRef.current.track(
+        dataRepository.saveBundles([{ book: updatedBook, images: getBookImages(updatedBook) }]),
+      )
+      if (revision === saveRevisionRef.current) setSaveStatus('saved')
+      if (openedTab) {
+        openedTab.navigate(createBoardUrl(updatedBook.id, createdBoardId))
+      } else {
+        setDemoMessage('Tablica została utworzona, ale przeglądarka zablokowała nową kartę.')
+      }
+    } catch {
+      openedTab?.close()
+      if (revision === saveRevisionRef.current) setSaveStatus('error')
+      setDemoMessage('Nie udało się zapisać nowej tablicy lokalnie.')
+    }
+  }
+
   function createBoardInBook(book: CommunicationBook) {
+    const openedTab = openBoardTab()
     const nextBoard = createBoard({
       id: crypto.randomUUID(),
       communicationBookId: book.id,
@@ -348,28 +492,102 @@ export function App({
         : item,
     ))
     const updatedBook = { ...book, boards: [...book.boards, nextBoard], mainBoardId: book.mainBoardId ?? nextBoard.id, updatedAt: new Date().toISOString() }
-    scheduleBookSave(updatedBook)
-    void openBoardInBook(nextBoard)
+    void saveCreatedBoardAndOpen(updatedBook, nextBoard.id, openedTab)
+  }
+
+  function createLinkedBoard(name: string) {
+    if (!openedBook || !selectedSymbolId) return
+    const openedTab = openBoardTab()
+    const nextBoard = createBoard({
+      id: crypto.randomUUID(),
+      communicationBookId: openedBook.id,
+      name,
+      createdAt: new Date().toISOString(),
+    })
+    const now = new Date().toISOString()
+    const updatedCurrentBoard = {
+      ...board,
+      symbols: board.symbols.map((symbol) => symbol.id === selectedSymbolId
+        ? { ...symbol, linkedBoardId: nextBoard.id, updatedAt: now }
+        : symbol),
+      updatedAt: now,
+    }
+    const updatedBook = {
+      ...openedBook,
+      boards: [
+        ...openedBook.boards.map((candidate) => candidate.id === board.id ? updatedCurrentBoard : candidate),
+        nextBoard,
+      ],
+      mainBoardId: openedBook.mainBoardId ?? nextBoard.id,
+      updatedAt: now,
+    }
+    setBoard(updatedCurrentBoard)
+    setBooks((current) => current.map((book) => book.id === openedBook.id ? updatedBook : book))
+    void saveCreatedBoardAndOpen(updatedBook, nextBoard.id, openedTab)
   }
 
   function goBackFromBoard() {
-    const previousId = boardHistory.at(-1)
-    if (mode === 'use' && previousId && openedBook) {
-      const previous = openedBook.boards.find((candidate) => candidate.id === previousId)
-      if (previous) {
+    const previousLocation = boardHistory.at(-1)
+    if (mode === 'use' && previousLocation) {
+      const previousBook = visibleBooks.find((candidate) => candidate.id === previousLocation.bookId)
+      const previousBoard = previousBook?.boards.find((candidate) => candidate.id === previousLocation.boardId)
+      if (previousBook && previousBoard) {
         setBoardHistory((current) => current.slice(0, -1))
-        setBoard(previous)
+        setOpenedBookId(previousBook.id)
+        setBoard(previousBoard)
         return
       }
     }
     setView(openedBookId ? 'book' : 'home')
   }
 
+  function renameBook(bookId: string, name: string) {
+    setBooks((current) => current.map((book) => {
+      if (book.id !== bookId) return book
+      const updatedBook = { ...book, name, updatedAt: new Date().toISOString() }
+      scheduleBookSave(updatedBook)
+      return updatedBook
+    }))
+  }
+
+  async function deleteBook(bookId: string) {
+    try {
+      await autosaveRef.current.flush()
+      await autosaveRef.current.track(dataRepository.deleteBooks([bookId]))
+      const deletedBook = visibleBooks.find((book) => book.id === bookId)
+      deletedBook?.boards.forEach((deletedBoard) => deletedBoard.symbols.forEach((symbol) => {
+        if (!symbol.image) return
+        const imageUrl = imageSources[symbol.image.id]
+        if (imageUrl) URL.revokeObjectURL?.(imageUrl)
+        imageBlobsRef.current.delete(symbol.image.id)
+      }))
+      setImageSources((current) => {
+        const next = { ...current }
+        deletedBook?.boards.forEach((deletedBoard) => deletedBoard.symbols.forEach((symbol) => {
+          if (symbol.image) delete next[symbol.image.id]
+        }))
+        return next
+      })
+      const thumbnailUrl = thumbnailUrlsRef.current.get(bookId)
+      if (thumbnailUrl) URL.revokeObjectURL?.(thumbnailUrl)
+      thumbnailUrlsRef.current.delete(bookId)
+      thumbnailImageIdsRef.current.delete(bookId)
+      setThumbnailSources((current) => {
+        const next = { ...current }
+        delete next[bookId]
+        return next
+      })
+      setBooks((current) => current.filter((book) => book.id !== bookId))
+      setAddedBookId((current) => current === bookId ? null : current)
+    } catch {
+      setTransferNotice({ type: 'error', message: 'Nie udało się usunąć księgi.' })
+    }
+  }
+
   function goToMainBoard() {
     if (!openedBook?.mainBoardId) return
     const main = openedBook.boards.find((candidate) => candidate.id === openedBook.mainBoardId)
     if (main) {
-      setBoardHistory([])
       setBoard(main)
     }
   }
@@ -401,7 +619,7 @@ export function App({
     setTransferNotice({ type: 'status', message: 'Sprawdzanie pliku…' })
     try {
       const imported = await importBookBackup(file, visibleBooks, undefined, imageBlobsRef.current.keys())
-      setTransferNotice({ type: 'status', message: 'Importowanie książki…' })
+      setTransferNotice({ type: 'status', message: 'Importowanie księgi…' })
 
       const nextSources: Record<string, string> = {}
       const nextUrls: string[] = []
@@ -423,13 +641,20 @@ export function App({
       createdImageUrlsRef.current.push(...nextUrls)
       setImageSources((current) => ({ ...current, ...nextSources }))
       setBooks((current) => [imported.book, ...current])
-      setTransferNotice({ type: 'success', message: 'Książka została zaimportowana.' })
+      setAddedBookId(imported.book.id)
+      void refreshBookThumbnail(imported.book)
+      setTransferNotice({ type: 'success', message: 'Księga została zaimportowana' })
+      if (importToastTimerRef.current !== null) window.clearTimeout(importToastTimerRef.current)
+      importToastTimerRef.current = window.setTimeout(() => {
+        setTransferNotice((current) => current?.type === 'success' ? null : current)
+        importToastTimerRef.current = null
+      }, 4000)
     } catch (error) {
       setTransferNotice({
         type: 'error',
         message: error instanceof BookTransferError
           ? error.userMessage
-          : 'Nie udało się zaimportować książki. Lokalne dane nie zostały zmienione.',
+          : 'Nie udało się zaimportować księgi. Lokalne dane nie zostały zmienione.',
       })
     }
   }
@@ -437,25 +662,33 @@ export function App({
   async function exportBook(bookId: string) {
     const book = visibleBooks.find((candidate) => candidate.id === bookId)
     if (!book) {
-      setTransferNotice({ type: 'error', message: 'Nie znaleziono książki do eksportu.' })
+      setTransferNotice({ type: 'error', message: 'Nie znaleziono księgi do eksportu.' })
       return
     }
     setTransferNotice({ type: 'status', message: 'Przygotowywanie kopii…' })
     try {
       const storedImages = await dataRepository.getImagesForBook(book.id)
-      const images = new Map([...storedImages, ...imageBlobsRef.current])
+      const images = new Map([...storedImages, ...getBookImages(book)])
       const blob = await createBookBackup(book, images)
       downloadBackup(blob, createSafeBackupFileName(book.name))
-      setTransferNotice({ type: 'success', message: 'Kopia książki jest gotowa do zapisania.' })
+      setTransferNotice({ type: 'success', message: 'Kopia księgi jest gotowa do zapisania.' })
     } catch (error) {
       setTransferNotice({
         type: 'error',
         message: error instanceof BookTransferError
           ? error.userMessage
-          : 'Nie udało się wyeksportować książki.',
+          : 'Nie udało się wyeksportować księgi.',
       })
     }
   }
+
+  const inspectorBoards = openedBookId
+    ? visibleBooks.flatMap((book) => book.boards.map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        bookName: book.name,
+      })))
+    : demoBoards.map((candidate) => ({ ...candidate, bookName: 'Podgląd developerski' }))
 
   return (
     <div className="demo">
@@ -532,9 +765,12 @@ export function App({
           books={visibleBooks}
           onCreateBook={createBook}
           onOpenBook={openBook}
+          onRenameBook={renameBook}
+          onDeleteBook={deleteBook}
           onImportBook={importBook}
           onExportBook={exportBook}
-          imageSources={imageSources}
+          thumbnailSources={thumbnailSources}
+          addedBookId={addedBookId}
           transferNotice={transferNotice}
         />
       )}
@@ -542,15 +778,13 @@ export function App({
       {view === 'book' && openedBook && (
         <main className="book-view">
           <button type="button" onClick={() => setView('home')}>← Wróć do strony głównej</button>
-          <h1>{openedBook.name.trim() || 'Książka bez tytułu'}</h1>
+          <h1>{openedBook.name.trim() || 'Księga bez tytułu'}</h1>
           <p>{openedBook.boards.length} {openedBook.boards.length === 1 ? 'tablica' : 'tablice'}</p>
+          <button type="button" onClick={() => createBoardInBook(openedBook)}>+ Dodaj tablicę</button>
           {openedBook.boards.length > 0 ? (
-            <ul>{openedBook.boards.map((item) => <li key={item.id}><button type="button" onClick={() => void openBoardInBook(item)}>{item.name.trim() || 'Tablica bez tytułu'}</button></li>)}</ul>
+            <ul>{openedBook.boards.map((item) => <li key={item.id}><button type="button" onClick={() => void openBoardInBook(item, 'use')}>{item.name.trim() || 'Tablica bez tytułu'}</button></li>)}</ul>
           ) : (
-            <>
-              <p>Ta książka nie ma jeszcze tablic.</p>
-              <button type="button" onClick={() => createBoardInBook(openedBook)}>+ Utwórz pierwszą tablicę</button>
-            </>
+            <p>Ta księga nie ma jeszcze tablic.</p>
           )}
         </main>
       )}
@@ -561,9 +795,10 @@ export function App({
         saveStatus={saveStatus}
         onNameChange={(name) => updateBoardEverywhere((current) => ({ ...current, name }))}
         onBack={openedBookId ? goBackFromBoard : undefined}
-        backLabel={mode === 'use' && boardHistory.length > 0 ? 'Wróć' : openedBookId ? 'Wróć do książki' : 'Strona główna'}
+        backLabel={mode === 'use' && boardHistory.length > 0 ? 'Wróć' : openedBookId ? 'Wróć do księgi' : 'Strona główna'}
         onGoToMain={openedBook?.mainBoardId !== board.id ? goToMainBoard : undefined}
         onStartUse={() => setMode('use')}
+        onStartEdit={() => setMode('edit')}
         onAddSymbol={openImagePicker}
         onSettingsChange={(changes) => updateBoardEverywhere((current) => ({ ...current, ...changes, updatedAt: new Date().toISOString() }))}
         canRepeat={lastSpokenText !== null}
@@ -592,13 +827,11 @@ export function App({
         <SymbolInspector
           symbol={selectedSymbol}
           currentBoardId={board.id}
-          boards={demoBoards}
+          boards={inspectorBoards}
           onChange={updateSelectedSymbol}
           onClose={closeInspector}
           onDelete={deleteSelectedSymbol}
-          onCreateLinkedBoard={() =>
-            setDemoMessage('Wywołano akcję tworzenia nowej tablicy.')
-          }
+          onCreateLinkedBoard={openedBook ? createLinkedBoard : undefined}
         />
       )}
 

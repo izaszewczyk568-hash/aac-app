@@ -126,12 +126,6 @@
   position: relative;
 }
 
-.board__history-actions {
-  display: flex;
-  gap: var(--space-8);
-}
-
-.board__history-actions button,
 .board__more-button {
   min-width: 2.5rem;
   padding: var(--space-8);

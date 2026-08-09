@@ -2,102 +2,54 @@
 
 ## 001 — React, TypeScript i Vite
 
-**Status:** przyjęta
+**Status:** przyjęta. Lekki frontend bez frameworka serwerowego odpowiada local-first MVP.
 
-Lekki fundament z szybkim środowiskiem developerskim, statycznym typowaniem i szerokim wsparciem przeglądarek. Projekt nie dodaje frameworka serwerowego, ponieważ MVP jest local-first i nie wymaga backendu.
+## 002 — Testy i automatyczna dostępność
 
-## 002 — Vitest, jsdom i Testing Library
+**Status:** przyjęta. Vitest, jsdom i Testing Library testują logikę/komponenty. Playwright i axe obsługują skany a11y, E2E oraz PWA; automaty nie zastępują kontroli manualnych.
 
-**Status:** przyjęta
+## 003 — GitHub Actions i Node.js 22
 
-Test runner współdzieli konfigurację i sposób transformacji z Vite. Testing Library promuje testowanie przez zachowanie dostępne dla użytkownika.
+**Status:** przyjęta. CI działa dla push i pull request do `main`, instaluje z lockfile i wykonuje wszystkie stałe kontrole projektu.
 
-## 003 — Brak narzędzia E2E na etapie pustego fundamentu
+## 004 — Wersjonowana domena niezależna od storage
 
-**Status:** zastąpiona po wprowadzeniu automatycznych testów a11y
+**Status:** przyjęta. `CommunicationBook → Board → Symbol` jest czystym TypeScript. `mainBoardId` jest jedynym źródłem głównej tablicy; grid używa `columns` i `position`. Opcjonalne dane serializowalne używają `null`. `Symbol.label` jest jedynym źródłem podpisu i mowy.
 
-Na etapie pustego fundamentu instalację przeglądarek odłożono. Decyzję zastąpiło późniejsze wymaganie stałych automatycznych skanów dostępności. Playwright i axe obsługują testy a11y, a osobne konfiguracje Playwright sprawdzają krytyczny przepływ produkcyjny oraz działanie PWA po odcięciu sieci.
+## 005 — Lokalny storage, obrazy i mowa
 
-## 004 — Node.js 22 w CI
+**Status:** przyjęta. Repository izoluje IndexedDB. Obrazy są przetwarzane natywnie i przechowywane jako Blob, Web Speech API pozostaje lokalne, a dwell korzysta z lekkiej animacji CSS.
 
-**Status:** przyjęta
+## 006 — CommunicationBook jako jednostka biblioteki i backupu
 
-Używana jest aktywna linia LTS wspierana przez obecny zestaw narzędzi. Instalacja w CI korzysta z pliku blokady zależności.
+**Status:** przyjęta. Jedna `CommunicationBook` jest kartą Home oraz jednostką `.aacbook`. Nazwa może być pusta, a fallback nie trafia do modelu. Import waliduje dane i remapuje kolidujące ID bez nadpisywania lokalnych danych.
 
-## 005 — GitHub i GitHub Actions
+## 007 — Terminologia user-facing „Księga”
 
-**Status:** przyjęta
+**Status:** przyjęta. Całe polskie copy używa „Księga” z poprawną odmianą. Techniczne nazwy `CommunicationBook`, typy, nazwy stores i format `.aacbook` pozostają bez zmian.
 
-Kod będzie utrzymywany w GitHub, a automatyczne kontrole zapewnia GitHub Actions. `main` jest główną gałęzią; workflow działa dla pushów do `main` oraz pull requestów kierowanych do `main`. Większe zmiany mogą powstawać na gałęziach `feature/...`.
+## 008 — Jedna runtime miniatura PNG karty
 
-## 006 — Wersjonowany model domenowy niezależny od storage
+**Status:** przyjęta. Karta wybiera pierwszy dostępny obraz symbolu głównej tablicy według `position`, tworzy lokalny PNG w runtime i pokazuje go przez zwalniany object URL. Źródłowy Blob nie jest modyfikowany, a PNG nie jest zapisywany w IndexedDB.
 
-**Status:** przyjęta
+## 009 — Reguły wejścia do Board
 
-Model `CommunicationBook → Board → Symbol` jest czystym modułem TypeScript bez zależności od Reacta i IndexedDB. Agregaty przechowują elementy podrzędne oraz jawne identyfikatory relacji. `schemaVersion` znajduje się na książce, aby przyszłe migracje mogły rozpoznać format danych.
+**Status:** przyjęta. Istniejąca Board otwiera się domyślnie w `use`, nowa w `edit`. `use` zawiera jawny przycisk „Edytuj tablicę” bez PIN/caregiver locka w MVP. Undo/Redo usunięto, ponieważ nie mają implementacji.
 
-Tablice używają siatki określonej liczbą kolumn, a symbole pola `position`; model nie przewiduje współrzędnych x/y. Opcjonalne wartości serializowalne, takie jak `linkedBoardId`, obraz i indywidualny `dwellTime`, używają `null`. Fabryki zapewniają bezpieczne wartości domyślne, a helper efektywnego dwell time stosuje wartość symbolu przed wartością tablicy. `Symbol.label` jest jedynym źródłem podpisu i przyszłego tekstu mowy; model nie duplikuje tej treści w `speechText`.
+## 010 — Cross-book linking przez globalne Board ID
 
-`Board.name` może być pustym stringiem i fabryka zachowuje podaną wartość bez podstawiania tekstu zastępczego. Warstwa prezentacji pokazuje „Tablica bez tytułu” dla pustej lub składającej się wyłącznie z białych znaków nazwy, gdy wyświetla ją jako tekst.
+**Status:** przyjęta. Board ID tworzone przez `crypto.randomUUID` są globalnie unikalne, a import remapuje konflikty względem wszystkich lokalnych ksiąg. `linkedBoardId` wystarcza; nie dodano `linkedBookId` ani zmiany `schemaVersion`. Relacje nie opierają się na nazwach.
 
-## 007 — Główna tablica jako pojedyncza referencja książki
+Select Inspectora pokazuje wszystkie inne lokalne Boards jako „Tablica — Księga”. Utworzenie nowej tablicy z Inspectora dodaje ją do aktualnej księgi i natychmiast przypisuje `selectedSymbol.linkedBoardId`.
 
-**Status:** przyjęta
+## 011 — Historia i główna tablica w nawigacji cross-book
 
-`CommunicationBook.mainBoardId` jest jedynym źródłem prawdy o głównej tablicy komunikacyjnej. `Board` nie przechowuje flagi głównej tablicy. Stan ten wylicza się przez porównanie `board.id === communicationBook.mainBoardId`, dzięki czemu nie może powstać rozbieżność między dwiema trwałymi reprezentacjami. `mainBoardId` może być `null`, a ustawienie innej tablicy zastępuje wcześniejszą wartość.
+**Status:** przyjęta. Historia przechowuje `{bookId, boardId}`, więc `Wróć` odtwarza oba konteksty. Po przejściu aktualną księgą staje się księga docelowa; „Tablica główna” korzysta z jej `mainBoardId`.
 
-## 008 — Lokalne przetwarzanie obrazów natywnymi API
+## 012 — Granica eksportu przy cross-book links
 
-**Status:** przyjęta
+**Status:** przyjęta. Eksport jednej księgi nie dołącza automatycznie innych ksiąg. `linkedBoardId` pozostaje w pliku. Import dopuszcza brak zewnętrznego targetu; symbol i mowa działają, a nawigacja pokazuje bezpieczny komunikat o niedostępnym połączeniu bez crasha.
 
-Walidacja, dekodowanie, skalowanie i kompresja obrazów symboli odbywają się wyłącznie w przeglądarce przy użyciu natywnych API, bez zewnętrznej biblioteki ani usługi. Model domenowy przechowuje tylko metadane `ImageReference`; zawartość binarna i tymczasowy URL podglądu pozostają poza domeną i na obecnym etapie istnieją wyłącznie w pamięci demo.
+## 013 — Fixtures i PWA oddzielone od danych użytkownika
 
-## 009 — Transformacje obrazu jako metadane
-
-**Status:** przyjęta
-
-Obrót i powiększenie obrazu są zapisane w `ImageReference` jako `rotation` oraz `scale`. Transformacje są stosowane prezentacyjnie i nie powodują ponownej kompresji ani modyfikacji binarnego obrazu. Domyślne wartości to odpowiednio `0` i `1`.
-
-Dodanie trwałych pól transformacji podniosło `CURRENT_SCHEMA_VERSION` do `2`. Był to etap przed wprowadzeniem IndexedDB; obecne Repository zapisuje wyłącznie aktualną wersję schematu, a migracje starszych wersji nadal pozostają osobnym zadaniem.
-
-Usunięcie zdublowanego pola `speechText` i przyjęcie `Symbol.label` jako jedynego źródła tekstu podniosło `CURRENT_SCHEMA_VERSION` do `3`. Decyzja poprzedzała implementację obecnego Repository IndexedDB.
-
-## 010 — Lokalna mowa i lekki dwell
-
-**Status:** przyjęta
-
-Synteza mowy używa wyłącznie natywnego Web Speech API osłoniętego małym serwisem bez zależności zewnętrznych. `Symbol.label` pozostaje jedynym tekstem mówionym. Dwell jest alternatywną metodą aktywacji uruchamianą jawnie, korzysta z domenowego efektywnego czasu i lekkiej animacji CSS, a eyetracker jest traktowany jak wskaźnik. Stan ostatniej wypowiedzi i demonstracyjne przejścia nie są zapisywane.
-
-## 011 — CommunicationBook jako jednostka biblioteki
-
-**Status:** przyjęta
-
-Home zarządza całymi `CommunicationBook`, które są również docelową jednostką importu i eksportu. Karty nie renderują pełnego Board, lecz lekkie, nieinteraktywne preview głównej tablicy. Do czasu dodania osobnego pola aktywności kolejność „Ostatnio używane” jest przybliżana przez `updatedAt`.
-
-Nazwa książki może być pusta, aby tworzenie nie wymagało danych osobowych ani obowiązkowej treści. Warstwa prezentacji pokazuje wtedy „Książka bez tytułu” bez zapisywania fallbacku. Zmiana reguły podnosi `CURRENT_SCHEMA_VERSION` do `4`; przyszły import starszych danych wymaga jawnej migracji.
-
-## 012 — Domyślne ustawienia Board kopiowane do nowych symboli
-
-**Status:** przyjęta
-
-Wartości `defaultBorderColor`, `defaultTextColor` i `defaultBorderWidth` są kopiowane do symbolu podczas jego tworzenia przez `createSymbolForBoard`. Istniejące symbole przechowują własne wartości i nie są masowo aktualizowane po zmianie defaults. `defaultDwellTime` nie jest kopiowany: symbol z `dwellTime = null` dziedziczy go dynamicznie przez `getEffectiveDwellTime`. Nazwa tablicy pozostaje edytowana inline, a `mainBoardId` jest zarządzane wyłącznie na poziomie CommunicationBook.
-
-## 013 — CommunicationBook jako wersjonowana jednostka backupu
-
-**Status:** przyjęta
-
-Plik `.aacbook` jest JSON-ową kopią całej książki, łącznie z tablicami, symbolami, relacjami i obrazami. Base64 występuje wyłącznie na granicy pliku; primary storage nadal przechowuje `Blob`. Import waliduje cały graf przed transakcją Repository, odrzuca dangling links oraz nowsze i nieobsługiwane wersje. Konflikty ID są remapowane bez nadpisywania lokalnych danych. Pojedynczy Board nie jest główną jednostką eksportu MVP.
-
-## 014 — Syntetyczne fixtures tylko dla developmentu
-
-**Status:** przyjęta
-
-Realistyczne książki demo są odseparowanym modułem, nie zmieniają domeny i nie otrzymują pola `isDemo`. Są ładowane wyłącznie jawną akcją w development build i zapisują się przez normalne Repository. Stabilny manifest ID zapewnia idempotentność i bezpieczny cleanup oryginałów. Zaimportowana kopia z innym ID nie jest usuwana. Grafiki PNG są lokalnie generowanymi `synthetic demo assets`, nie profesjonalnymi symbolami AAC.
-
-## 015 — App shell PWA oddzielony od danych użytkownika
-
-**Status:** przyjęta
-
-Service worker jest generowany podczas produkcyjnego buildu bez dodatkowej zależności runtime. Precache obejmuje wyłącznie własny app shell; książki i obrazy pozostają w IndexedDB i nie są kopiowane do Cache Storage. Cache ma własny, wersjonowany prefiks, a cleanup nie dotyka obcych cache’y ani bazy danych.
-
-Aktualizacja nie używa automatycznego `skipWaiting`. Oczekująca wersja jest aktywowana dopiero po jawnej akcji użytkownika i udanym opróżnieniu kolejki lokalnych zapisów. Błąd zapisu zatrzymuje aktualizację i reload. Development nie rejestruje service workera, aby zachować przewidywalny hot reload. Instalacja korzysta z natywnego mechanizmu przeglądarki; dedykowany prompt instalacji pozostaje poza zakresem PWA v1.
+**Status:** przyjęta. Fixtures są syntetyczne i uruchamiane tylko jawnie w development build. Service worker cache’uje wyłącznie app shell; IndexedDB, obrazy, `.aacbook` i adresy `blob:` nie trafiają do Cache Storage.

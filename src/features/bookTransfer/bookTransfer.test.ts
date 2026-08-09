@@ -139,14 +139,13 @@ describe('CommunicationBook import/export', () => {
     expect(imported.book.mainBoardId).not.toBe(original.book.mainBoardId)
   })
 
-  it('rejects broken main and linked board relations', async () => {
+  it('preserves a cross-book link whose target is not part of this backup', async () => {
     const { book, images } = fixture()
     const backup = JSON.parse(await readText(await createBookBackup(book, images)))
     backup.communicationBook.boards[0].symbols[0].linkedBoardId = 'outside-book'
 
-    await expect(parseBookBackup(new Blob([JSON.stringify(backup)]))).rejects.toMatchObject({
-      code: 'invalid-relations',
-    })
+    const imported = await parseBookBackup(new Blob([JSON.stringify(backup)]))
+    expect(imported.book.boards[0].symbols[0].linkedBoardId).toBe('outside-book')
   })
 
   it('rejects a missing or corrupted image before returning imported data', async () => {
@@ -164,7 +163,7 @@ describe('CommunicationBook import/export', () => {
     const backup = JSON.parse(await readText(await createBookBackup(book, images)))
     backup.schemaVersion = CURRENT_SCHEMA_VERSION + 1
     await expect(parseBookBackup(new Blob([JSON.stringify(backup)]))).rejects.toEqual(
-      new BookTransferError('newer-schema-version', 'Ta książka została utworzona w nowszej wersji aplikacji.'),
+      new BookTransferError('newer-schema-version', 'Ta księga została utworzona w nowszej wersji aplikacji.'),
     )
   })
 
@@ -176,6 +175,6 @@ describe('CommunicationBook import/export', () => {
 
   it('creates safe download names', () => {
     expect(createSafeBackupFileName('  Posiłki / lato  ')).toBe('Posilki-lato.aacbook')
-    expect(createSafeBackupFileName('   ')).toBe('Ksiazka-AAC.aacbook')
+    expect(createSafeBackupFileName('   ')).toBe('Ksiega-AAC.aacbook')
   })
 })

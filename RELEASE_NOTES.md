@@ -9,7 +9,7 @@ Pierwsza wersja MVP aplikacji AAC obejmuje:
 - aktywację symboli kliknięciem, klawiaturą oraz gaze/dwell,
 - nawigację między połączonymi tablicami,
 - lokalny zapis w IndexedDB i autosave,
-- import i eksport całej książki komunikacyjnej,
+- import i eksport całej księgi komunikacyjnej,
 - instalowalne PWA z app shellem offline,
 - podstawową obsługę dostępności oraz automatyczne kontrole axe.
 
@@ -17,4 +17,4 @@ Pierwsza wersja MVP aplikacji AAC obejmuje:
 
 - Brak kont użytkowników i synchronizacji z chmurą.
 - Dostępność głosów syntezy mowy zależy od przeglądarki i systemu operacyjnego.
-- Dane lokalne mogą zostać utracone po wyczyszczeniu danych strony; ważne książki należy regularnie eksportować jako backup `.aacbook`.
+- Dane lokalne mogą zostać utracone po wyczyszczeniu danych strony; ważne księgi należy regularnie eksportować jako backup `.aacbook`.

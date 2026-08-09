@@ -58,6 +58,20 @@ test('Board edit with selected SymbolTile', async ({ page }) => {
   await expectNoA11yViolations(page)
 })
 
+test('SymbolInspector fits a narrow viewport without horizontal scrolling', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 })
+  await openBoardPreview(page)
+  await addSymbol(page)
+  const inspector = page.getByRole('complementary', { name: 'Ustawienia symbolu' })
+  await expect(inspector).toBeVisible()
+  const bounds = await inspector.boundingBox()
+  expect(bounds).not.toBeNull()
+  expect(bounds!.x).toBeGreaterThanOrEqual(0)
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320)
+  expect(await inspector.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+  await expectNoA11yViolations(page)
+})
+
 test('SymbolInspector delete confirmation', async ({ page }) => {
   await openBoardPreview(page)
   await addSymbol(page)
@@ -126,7 +140,7 @@ test('Board use activates a symbol with Enter and Space', async ({ page }) => {
 })
 
 test('Home without recent books', async ({ page }) => {
-  await expect(page.getByRole('heading', { level: 1, name: 'Rozpocznij pracę z książką AAC' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Rozpocznij pracę z Księgą AAC' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Ostatnio używane' })).toHaveCount(0)
   await expectNoA11yViolations(page)
 })
@@ -142,27 +156,51 @@ test('seeded CommunicationBook view and populated Board use', async ({ page }) =
   await expect(page.getByRole('heading', { name: 'Posiłki' })).toBeVisible()
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Posiłki' })).toBeVisible()
-  await page.getByRole('button', { name: 'Otwórz książkę Posiłki' }).click()
+  await page.getByRole('button', { name: 'Otwórz księgę Posiłki' }).click()
   await expect(page.getByRole('heading', { name: 'Posiłki' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Główna' })).toBeVisible()
   await expectNoA11yViolations(page)
 
   await page.getByRole('button', { name: 'Główna' }).click()
-  await page.getByRole('radio', { name: 'Use' }).check()
   await expect(page.getByRole('button', { name: 'Jedzenie' })).toBeVisible()
   await expectNoA11yViolations(page)
 })
 
 test('Home with an open book menu', async ({ page }) => {
   await page.getByRole('button', { name: 'Załaduj dane demo' }).click()
-  await page.getByRole('button', { name: 'Więcej opcji książki Posiłki' }).click()
+  await page.getByRole('button', { name: 'Więcej opcji księgi Posiłki' }).click()
   await expect(page.getByRole('menu')).toBeVisible()
-  await expect(page.getByRole('menuitem', { name: 'Eksportuj książkę' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Eksportuj księgę Posiłki' })).toBeVisible()
+  await expectNoA11yViolations(page)
+})
+
+test('Home rename and delete book dialogs', async ({ page }) => {
+  await page.getByRole('button', { name: 'Załaduj dane demo' }).click()
+  await page.getByRole('button', { name: 'Więcej opcji księgi Posiłki' }).click()
+  await page.getByRole('menuitem', { name: 'Edytuj księgę Posiłki' }).click()
+  await expect(page.getByRole('dialog', { name: 'Edytuj księgę Posiłki' })).toBeVisible()
+  await expectNoA11yViolations(page)
+  await page.getByRole('button', { name: 'Anuluj' }).click()
+
+  await page.getByRole('button', { name: 'Więcej opcji księgi Posiłki' }).click()
+  await page.getByRole('menuitem', { name: 'Usuń księgę Posiłki' }).click()
+  await expect(page.getByRole('alertdialog', { name: 'Usunąć księgę Posiłki?' })).toBeVisible()
+  await expectNoA11yViolations(page)
+})
+
+test('SymbolInspector create linked Board dialog', async ({ page }) => {
+  await page.getByRole('button', { name: 'Załaduj dane demo' }).click()
+  await page.getByRole('button', { name: 'Otwórz księgę Posiłki' }).click()
+  await page.getByRole('button', { name: 'Główna' }).click()
+  await page.getByRole('button', { name: 'Edytuj tablicę' }).click()
+  await page.getByRole('button', { name: /Wybierz symbol/ }).first().click()
+  await page.getByRole('button', { name: '+ Utwórz nową tablicę' }).click()
+  await expect(page.getByRole('dialog', { name: 'Utwórz nową tablicę' })).toBeVisible()
   await expectNoA11yViolations(page)
 })
 
 test('Home with an import error', async ({ page }) => {
-  await page.getByLabel('Wybierz plik kopii książki AAC').setInputFiles({
+  await page.getByLabel('Wybierz plik kopii księgi AAC').setInputFiles({
     name: 'broken.aacbook',
     mimeType: 'application/vnd.aacbook+json',
     buffer: Buffer.from('{'),
@@ -181,7 +219,7 @@ test('Home with a successful import', async ({ page }) => {
     communicationBook: {
       schemaVersion: 4,
       id: 'a11y-book',
-      name: 'Książka testowa',
+      name: 'Księga testowa',
       mainBoardId: null,
       boards: [],
       createdAt: now,
@@ -189,18 +227,18 @@ test('Home with a successful import', async ({ page }) => {
     },
     images: [],
   }
-  await page.getByLabel('Wybierz plik kopii książki AAC').setInputFiles({
+  await page.getByLabel('Wybierz plik kopii księgi AAC').setInputFiles({
     name: 'valid.aacbook',
     mimeType: 'application/vnd.aacbook+json',
     buffer: Buffer.from(JSON.stringify(backup)),
   })
-  await expect(page.getByRole('status')).toHaveText('Książka została zaimportowana.')
-  await expect(page.getByRole('heading', { name: 'Książka testowa' })).toBeVisible()
+  await expect(page.getByRole('status')).toHaveText('Księga została zaimportowana')
+  await expect(page.getByRole('heading', { name: 'Księga testowa' }).first()).toBeVisible()
   await expectNoA11yViolations(page)
 })
 
 test('Home create book dialog', async ({ page }) => {
-  await page.getByRole('button', { name: '+ Utwórz nową książkę' }).click()
+  await page.getByRole('button', { name: 'Utwórz nową księgę' }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await expectNoA11yViolations(page)
 })
