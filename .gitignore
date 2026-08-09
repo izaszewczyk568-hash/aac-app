@@ -18,6 +18,7 @@ blob-report/
 /exports/
 /private/
 /user-data/
+*.aacbook
 
 # Local tooling and editor files
 .vite/

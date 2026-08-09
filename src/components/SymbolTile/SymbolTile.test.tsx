@@ -72,4 +72,63 @@ describe('SymbolTile', () => {
     expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Wybrano')).toBeInTheDocument()
   })
+
+  it('activates in use mode through a native button', () => {
+    const onActivate = vi.fn()
+    render(<SymbolTile symbol={makeSymbol()} mode="use" onActivate={onActivate} />)
+
+    const tile = screen.getByRole('button', { name: 'Banan' })
+    expect(tile.tagName).toBe('BUTTON')
+    fireEvent.click(tile)
+
+    expect(onActivate).toHaveBeenCalledOnce()
+    expect(screen.getByText('Aktywowano')).toBeInTheDocument()
+  })
+
+  it('starts dwell only when enabled, resets on leave and activates once on completion', () => {
+    const onActivate = vi.fn()
+    const { container, rerender } = render(
+      <SymbolTile symbol={makeSymbol()} mode="use" onActivate={onActivate} />,
+    )
+    const tile = screen.getByRole('button', { name: 'Banan' })
+
+    fireEvent.pointerEnter(tile)
+    expect(container.querySelector('.symbol-tile__dwell-progress')).toBeNull()
+
+    rerender(<SymbolTile symbol={makeSymbol()} mode="use" dwellEnabled dwellTime={500} onActivate={onActivate} />)
+    fireEvent.pointerEnter(tile)
+    let progress = container.querySelector('.symbol-tile__dwell-progress')!
+    expect(tile.style.getPropertyValue('--symbol-dwell-duration')).toBe('500ms')
+    fireEvent.pointerLeave(tile)
+    expect(container.querySelector('.symbol-tile__dwell-progress')).toBeNull()
+    expect(onActivate).not.toHaveBeenCalled()
+
+    fireEvent.pointerEnter(tile)
+    progress = container.querySelector('.symbol-tile__dwell-progress')!
+    fireEvent.animationEnd(progress, { animationName: 'symbol-dwell-progress' })
+    expect(onActivate).toHaveBeenCalledOnce()
+    expect(container.querySelector('.symbol-tile__dwell-progress')).toBeNull()
+    fireEvent.pointerEnter(tile)
+    expect(container.querySelector('.symbol-tile__dwell-progress')).toBeNull()
+
+    fireEvent.pointerLeave(tile)
+    fireEvent.pointerEnter(tile)
+    expect(container.querySelector('.symbol-tile__dwell-progress')).not.toBeNull()
+  })
+
+  it('cancels dwell progress and activates immediately after a click', () => {
+    const onActivate = vi.fn()
+    const { container } = render(
+      <SymbolTile symbol={makeSymbol()} mode="use" dwellEnabled dwellTime={3000} onActivate={onActivate} />,
+    )
+    const tile = screen.getByRole('button', { name: 'Banan' })
+
+    fireEvent.pointerEnter(tile)
+    expect(container.querySelector('.symbol-tile__dwell-progress')).not.toBeNull()
+    fireEvent.click(tile)
+
+    expect(container.querySelector('.symbol-tile__dwell-progress')).toBeNull()
+    expect(onActivate).toHaveBeenCalledOnce()
+    expect(screen.getByText('Aktywowano')).toBeInTheDocument()
+  })
 })

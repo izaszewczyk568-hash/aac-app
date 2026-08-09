@@ -1,0 +1,11 @@
+.board-settings__backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: var(--space-16); background: rgb(23 32 42 / 55%); }
+.board-settings { width: min(32rem, 100%); max-height: calc(100vh - var(--space-32)); overflow: auto; padding: var(--space-24); border-radius: var(--radius-8); color: var(--color-text); background: var(--color-surface); box-shadow: 0 var(--space-16) 3rem rgb(0 0 0 / 28%); }
+.board-settings header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-16); }
+.board-settings h2, .board-settings p { margin: 0; }
+.board-settings header button { min-width: 3rem; min-height: 3rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-8); background: var(--color-surface); font: inherit; font-size: 1.5rem; }
+.board-settings__fields { display: grid; gap: var(--space-16); margin: var(--space-24) 0; }
+.board-settings label { display: grid; gap: var(--space-8); font-weight: 800; }
+.board-settings input, .board-settings select { min-height: 3rem; padding: var(--space-8); border: 2px solid var(--color-border-strong); border-radius: var(--radius-8); background: var(--color-surface); font: inherit; }
+.board-settings input[type='color'] { width: 100%; }
+.board-settings button:focus-visible, .board-settings input:focus-visible, .board-settings select:focus-visible { outline: 4px solid var(--color-focus); outline-offset: 3px; }
+.board-settings > p { color: var(--color-text-secondary); }

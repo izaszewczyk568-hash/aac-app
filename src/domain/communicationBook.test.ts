@@ -4,6 +4,7 @@ import {
   createBoard,
   createCommunicationBook,
   createSymbol,
+  createSymbolForBoard,
   getEffectiveDwellTime,
   isMainBoard,
   setMainBoard,
@@ -37,6 +38,23 @@ function makeSymbol(
 }
 
 describe('communication book domain model', () => {
+  it('allows an empty book name without storing a presentation fallback', () => {
+    const book = createCommunicationBook({ id: 'book-1', name: '', createdAt: timestamp })
+    expect(book.name).toBe('')
+  })
+
+  it('creates a new symbol with the current board style defaults', () => {
+    const board = makeBoard({ defaultBorderColor: '#123456', defaultTextColor: '#654321', defaultBorderWidth: 7 })
+    const symbol = createSymbolForBoard(board, {
+      id: 'symbol-new',
+      label: 'Nowy',
+      position: 0,
+      createdAt: timestamp,
+    })
+
+    expect(symbol).toMatchObject({ boardId: board.id, borderColor: '#123456', textColor: '#654321', borderWidth: 7 })
+  })
+
   it('creates a valid versioned communication book', () => {
     const book = createCommunicationBook({
       id: 'book-1',
@@ -80,7 +98,6 @@ describe('communication book domain model', () => {
 
     expect(symbol).toMatchObject({
       position: 3,
-      speechText: null,
       image: null,
       linkedBoardId: null,
       dwellTime: null,

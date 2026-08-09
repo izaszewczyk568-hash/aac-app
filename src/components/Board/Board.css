@@ -286,6 +286,12 @@
   white-space: nowrap;
 }
 
+.board__use-actions {
+  display: flex;
+  gap: var(--space-8);
+  margin-left: auto;
+}
+
 .board__fullscreen svg {
   width: var(--space-16);
   height: var(--space-16);

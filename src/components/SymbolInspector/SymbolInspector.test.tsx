@@ -8,7 +8,6 @@ function makeSymbol() {
     id: 'symbol-1',
     boardId: 'board-current',
     label: 'Woda',
-    speechText: 'Chcę wody',
     position: 0,
     image: { id: 'image-1', mimeType: 'image/webp', width: 512, height: 256 },
     createdAt: '2026-08-09T12:00:00.000Z',
@@ -22,30 +21,24 @@ const boards = [
 ]
 
 describe('SymbolInspector', () => {
-  it('shows the selected symbol data and updates label and speech text', () => {
+  it('uses one name for the visible and future spoken text', () => {
     const onChange = vi.fn()
     render(<SymbolInspector symbol={makeSymbol()} currentBoardId="board-current" boards={boards} onChange={onChange} onClose={vi.fn()} onDelete={vi.fn()} />)
 
     expect(screen.getByLabelText('Nazwa symbolu')).toHaveValue('Woda')
-    expect(screen.getByLabelText('Tekst odczytywany na głos')).toHaveValue('Chcę wody')
     fireEvent.change(screen.getByLabelText('Nazwa symbolu'), { target: { value: '' } })
-    fireEvent.change(screen.getByLabelText('Tekst odczytywany na głos'), { target: { value: '' } })
     expect(onChange).toHaveBeenCalledWith({ label: '' })
-    expect(onChange).toHaveBeenCalledWith({ speechText: null })
+    expect(screen.queryByLabelText('Tekst odczytywany na głos')).not.toBeInTheDocument()
+    expect(screen.getByText(/widoczna na kafelku i odczytywana na głos/)).toBeInTheDocument()
   })
 
-  it('updates rotation, bounded zoom, border and text appearance', () => {
+  it('updates bounded border and text appearance without image transform controls', () => {
     const onChange = vi.fn()
     const symbol = makeSymbol()
     const { rerender } = render(<SymbolInspector symbol={symbol} currentBoardId="board-current" boards={boards} onChange={onChange} onClose={vi.fn()} onDelete={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Obróć o 90°' }))
-    expect(onChange).toHaveBeenCalledWith({ image: expect.objectContaining({ rotation: 90 }) })
-    const zoom = screen.getByLabelText(/Powiększenie obrazu/)
-    expect(zoom).toHaveAttribute('min', '100')
-    expect(zoom).toHaveAttribute('max', '200')
-    fireEvent.change(zoom, { target: { value: '200' } })
-    expect(onChange).toHaveBeenCalledWith({ image: expect.objectContaining({ scale: 2 }) })
+    expect(screen.queryByRole('button', { name: /Obróć/ })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Powiększenie obrazu/)).not.toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Grubość obramowania (px)'), { target: { value: '20' } })
     expect(onChange).toHaveBeenCalledWith({ borderWidth: 12 })
     rerender(<SymbolInspector symbol={{ ...symbol, borderWidth: 0 }} currentBoardId="board-current" boards={boards} onChange={onChange} onClose={vi.fn()} onDelete={vi.fn()} />)

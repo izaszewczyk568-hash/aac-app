@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { Symbol as SymbolModel } from '../../domain/communicationBook'
 import './SymbolTile.css'
 
@@ -8,6 +8,9 @@ export interface SymbolTileProps {
   mode: 'edit' | 'use'
   selected?: boolean
   onSelect?: (symbolId: string) => void
+  onActivate?: (symbol: SymbolModel) => void
+  dwellEnabled?: boolean
+  dwellTime?: number
 }
 
 export function SymbolTile({
@@ -16,13 +19,21 @@ export function SymbolTile({
   mode,
   selected = false,
   onSelect,
+  onActivate,
+  dwellEnabled = false,
+  dwellTime = 1000,
 }: SymbolTileProps) {
+  const [isDwelling, setIsDwelling] = useState(false)
+  const [isActivated, setIsActivated] = useState(false)
+  const activatedTimer = useRef<number | undefined>(undefined)
+  const dwellConsumed = useRef(false)
   const label = symbol.label.trim()
   const accessibleLabel = label || 'Symbol bez podpisu'
   const tileStyle = {
     '--symbol-border-color': symbol.borderColor,
     '--symbol-border-width': `${symbol.borderWidth}px`,
     '--symbol-text-color': symbol.textColor,
+    '--symbol-dwell-duration': `${dwellTime}ms`,
   } as CSSProperties
   const imageStyle = symbol.image
     ? {
@@ -48,8 +59,34 @@ export function SymbolTile({
       {mode === 'use' && !label && (
         <span className="symbol-tile__visually-hidden">Symbol bez podpisu</span>
       )}
+      {mode === 'use' && isDwelling && (
+        <span
+          className="symbol-tile__dwell-progress"
+          aria-hidden="true"
+          onAnimationEnd={() => {
+            setIsDwelling(false)
+            activate()
+          }}
+        />
+      )}
+      {mode === 'use' && isActivated && (
+        <span className="symbol-tile__activated-label" aria-live="polite">
+          Aktywowano
+        </span>
+      )}
     </>
   )
+
+  useEffect(() => () => window.clearTimeout(activatedTimer.current), [])
+
+  function activate() {
+    if (isDwelling) dwellConsumed.current = true
+    setIsDwelling(false)
+    window.clearTimeout(activatedTimer.current)
+    setIsActivated(true)
+    activatedTimer.current = window.setTimeout(() => setIsActivated(false), 700)
+    onActivate?.(symbol)
+  }
 
   return (
     <li className="symbol-tile-wrapper">
@@ -66,9 +103,23 @@ export function SymbolTile({
           {content}
         </button>
       ) : (
-        <div className="symbol-tile" style={tileStyle} data-symbol-id={symbol.id}>
+        <button
+          type="button"
+          className="symbol-tile symbol-tile--interactive symbol-tile--use"
+          style={tileStyle}
+          data-symbol-id={symbol.id}
+          aria-label={accessibleLabel}
+          onClick={activate}
+          onPointerEnter={() =>
+            dwellEnabled && !dwellConsumed.current && setIsDwelling(true)
+          }
+          onPointerLeave={() => {
+            setIsDwelling(false)
+            dwellConsumed.current = false
+          }}
+        >
           {content}
-        </div>
+        </button>
       )}
     </li>
   )

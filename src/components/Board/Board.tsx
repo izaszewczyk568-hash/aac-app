@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import type { Board as BoardModel } from '../../domain/communicationBook'
+import { BoardSettings } from '../BoardSettings/BoardSettings'
 import './Board.css'
 
 export type BoardMode = 'edit' | 'use'
@@ -20,8 +21,13 @@ export interface BoardProps {
   children?: ReactNode
   onNameChange?: (name: string) => void
   onBack?: () => void
+  backLabel?: string
+  onGoToMain?: () => void
   onStartUse?: () => void
   onAddSymbol?: () => void
+  onRepeat?: () => void
+  canRepeat?: boolean
+  onSettingsChange?: (changes: Partial<BoardModel>) => void
 }
 
 const saveStatusLabels: Record<SaveStatus, string> = {
@@ -53,12 +59,18 @@ export function Board({
   children,
   onNameChange,
   onBack,
+  backLabel = 'Strona główna',
+  onGoToMain,
   onStartUse,
   onAddSymbol,
+  onRepeat,
+  canRepeat = false,
+  onSettingsChange,
 }: BoardProps) {
   const [name, setName] = useState(board.name)
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const [isWorkspaceFullScreen, setIsWorkspaceFullScreen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const nameInputId = useId()
   const gridHeadingId = useId()
   const moreButtonRef = useRef<HTMLButtonElement>(null)
@@ -77,6 +89,10 @@ export function Board({
       firstMenuItemRef.current?.focus()
     }
   }, [isMoreMenuOpen])
+
+  useEffect(() => {
+    setName(board.name)
+  }, [board.id, board.name])
 
   useEffect(() => {
     function handleFullScreenChange() {
@@ -141,7 +157,7 @@ export function Board({
     <main className={`board board--${mode}`}>
       <header className="board__header">
         <div className="board__navigation">
-          <NavigationButton onClick={onBack}>← Strona główna</NavigationButton>
+          <NavigationButton onClick={onBack}>← {backLabel}</NavigationButton>
         </div>
 
         {isEditMode ? (
@@ -160,7 +176,13 @@ export function Board({
           <h1 className="board__title">{displayName}</h1>
         )}
 
-        {!isEditMode && (
+        {!isEditMode && <div className="board__use-actions">
+          {onGoToMain && (
+            <button type="button" onClick={onGoToMain}>Tablica główna</button>
+          )}
+          <button type="button" onClick={onRepeat} disabled={!canRepeat}>
+            Powtórz
+          </button>
           <button
             type="button"
             className="board__primary board__fullscreen"
@@ -171,7 +193,7 @@ export function Board({
             </svg>
             Pełny ekran
           </button>
-        )}
+        </div>}
 
         {isEditMode && (
           <div className="board__edit-actions">
@@ -223,6 +245,16 @@ export function Board({
                     ref={firstMenuItemRef}
                     type="button"
                     role="menuitem"
+                    onClick={() => {
+                      setIsMoreMenuOpen(false)
+                      setIsSettingsOpen(true)
+                    }}
+                  >
+                    Ustawienia tablicy
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
                     aria-disabled="true"
                   >
                     <svg
@@ -250,7 +282,7 @@ export function Board({
                     </svg>
                     Usuń tablicę
                   </button>
-                  <p>Te akcje nie są jeszcze dostępne.</p>
+                  <p>Eksport i usuwanie nie są jeszcze dostępne.</p>
                 </div>
               )}
             </div>
@@ -311,6 +343,16 @@ export function Board({
           </>
         )}
       </section>
+      {isSettingsOpen && (
+        <BoardSettings
+          board={board}
+          onChange={(changes) => onSettingsChange?.(changes)}
+          onClose={() => {
+            setIsSettingsOpen(false)
+            window.setTimeout(() => moreButtonRef.current?.focus())
+          }}
+        />
+      )}
     </main>
   )
 }

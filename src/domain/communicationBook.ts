@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 2 as const
+export const CURRENT_SCHEMA_VERSION = 4 as const
 
 export type SchemaVersion = typeof CURRENT_SCHEMA_VERSION
 export type IsoDateTime = string
@@ -16,7 +16,6 @@ export interface Symbol {
   id: string
   boardId: string
   label: string
-  speechText: string | null
   image: ImageReference | null
   position: number
   borderColor: string
@@ -80,7 +79,6 @@ export interface CreateSymbolInput {
   boardId: string
   label: string
   position: number
-  speechText?: string | null
   image?: (Omit<ImageReference, 'rotation' | 'scale'> & {
     rotation?: ImageReference['rotation']
     scale?: number
@@ -93,6 +91,11 @@ export interface CreateSymbolInput {
   createdAt?: IsoDateTime
   updatedAt?: IsoDateTime
 }
+
+export type CreateSymbolForBoardInput = Omit<
+  CreateSymbolInput,
+  'boardId' | 'borderColor' | 'textColor' | 'borderWidth'
+>
 
 const DEFAULT_COLUMNS = 4
 const DEFAULT_DWELL_TIME = 1000
@@ -126,7 +129,6 @@ export function createCommunicationBook(
   input: CreateCommunicationBookInput,
 ): CommunicationBook {
   requireNonBlank(input.id, 'CommunicationBook.id')
-  requireNonBlank(input.name, 'CommunicationBook.name')
 
   const boards = input.boards ?? []
   if (boards.some((board) => board.communicationBookId !== input.id)) {
@@ -204,7 +206,6 @@ export function createSymbol(input: CreateSymbolInput): Symbol {
     id: input.id,
     boardId: input.boardId,
     label: input.label,
-    speechText: input.speechText ?? null,
     image: input.image
       ? { rotation: 0, scale: 1, ...input.image }
       : null,
@@ -217,6 +218,19 @@ export function createSymbol(input: CreateSymbolInput): Symbol {
     createdAt,
     updatedAt: input.updatedAt ?? createdAt,
   }
+}
+
+export function createSymbolForBoard(
+  board: Board,
+  input: CreateSymbolForBoardInput,
+): Symbol {
+  return createSymbol({
+    ...input,
+    boardId: board.id,
+    borderColor: board.defaultBorderColor,
+    textColor: board.defaultTextColor,
+    borderWidth: board.defaultBorderWidth,
+  })
 }
 
 export function addBoard(

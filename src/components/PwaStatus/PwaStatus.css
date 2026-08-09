@@ -1,0 +1,8 @@
+.pwa-status:empty { display: none; }
+.pwa-status { position: relative; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8); padding: var(--space-8) var(--space-16); border-bottom: 1px solid var(--color-border); background: #fff8df; color: var(--color-text); }
+.pwa-status p { margin: 0; }
+.pwa-status__offline { font-weight: 700; }
+.pwa-status__update { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8) var(--space-16); }
+.pwa-status button { min-height: 2.75rem; padding: var(--space-8) var(--space-16); border: 2px solid var(--color-primary); border-radius: var(--radius-8); color: var(--color-primary); background: var(--color-surface); font: inherit; font-weight: 700; }
+.pwa-status button:focus-visible { outline: 4px solid var(--color-focus); outline-offset: 2px; }
+.pwa-status [role='alert'] { color: var(--color-danger); font-weight: 700; }

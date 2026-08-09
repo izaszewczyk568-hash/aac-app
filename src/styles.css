@@ -17,6 +17,7 @@
   --space-16: 1rem;
   --space-24: 1.5rem;
   --space-32: 2rem;
+  --space-48: 3rem;
   --radius-8: 0.5rem;
 }
 
@@ -83,10 +84,24 @@ body {
 }
 
 .demo__toolbar input:focus-visible,
-.demo__toolbar select:focus-visible {
+.demo__toolbar select:focus-visible,
+.demo__toolbar button:focus-visible {
   outline: 4px solid #ffbf47;
   outline-offset: 3px;
 }
+
+.demo__toolbar button {
+  min-height: 2.75rem;
+  padding: var(--space-8) var(--space-16);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+  font: inherit;
+}
+
+.book-view { min-height: calc(100vh - 4rem); padding: var(--space-32); background: var(--color-surface); }
+.book-view button { min-height: 2.75rem; padding: var(--space-8) var(--space-16); border: 1px solid var(--color-primary); border-radius: var(--radius-8); color: var(--color-primary); background: var(--color-surface); font: inherit; }
+.book-view button:focus-visible { outline: 4px solid var(--color-focus); outline-offset: 3px; }
 
 .demo__file-input {
   position: fixed;

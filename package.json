@@ -1,14 +1,17 @@
 {
   "name": "aac-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
     "test:a11y": "playwright test",
+    "test:e2e": "playwright test --config playwright.e2e.config.ts",
+    "test:pwa": "playwright test --config playwright.pwa.config.ts",
     "test:watch": "vitest"
   },
   "dependencies": {

@@ -134,8 +134,16 @@ describe('Board', () => {
 
     expect(onBack).toHaveBeenCalledOnce()
     expect(screen.getByRole('button', { name: 'Pełny ekran' })).toBeEnabled()
-    expect(screen.queryByRole('button', { name: 'Powtórz' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Powtórz' })).toBeDisabled()
     expect(screen.queryByLabelText('Więcej opcji tablicy')).not.toBeInTheDocument()
+  })
+
+  it('uses a contextual back label supplied by the parent view', () => {
+    const onBack = vi.fn()
+    render(<Board board={makeBoard()} mode="edit" onBack={onBack} backLabel="Wróć do książki" />)
+
+    fireEvent.click(screen.getByRole('button', { name: '← Wróć do książki' }))
+    expect(onBack).toHaveBeenCalledOnce()
   })
 
   it('shows only the workspace in full screen and provides an exit button', () => {
@@ -223,19 +231,20 @@ describe('Board', () => {
     })
     fireEvent.click(moreButton)
 
-    const exportAction = screen.getByRole('menuitem', {
-      name: 'Eksportuj tablicę',
+    const settingsAction = screen.getByRole('menuitem', {
+      name: 'Ustawienia tablicy',
     })
-    expect(exportAction).toHaveFocus()
+    expect(settingsAction).toHaveFocus()
+    const exportAction = screen.getByRole('menuitem', { name: 'Eksportuj tablicę' })
     expect(exportAction).toHaveAttribute('aria-disabled', 'true')
     const deleteAction = screen.getByRole('menuitem', { name: 'Usuń tablicę' })
     expect(deleteAction).toHaveAttribute('aria-disabled', 'true')
 
-    fireEvent.keyDown(exportAction, { key: 'ArrowDown' })
+    fireEvent.keyDown(settingsAction, { key: 'ArrowDown' })
     expect(deleteAction).toHaveFocus()
     fireEvent.keyDown(deleteAction, { key: 'ArrowUp' })
-    expect(exportAction).toHaveFocus()
-    fireEvent.keyDown(exportAction, { key: 'End' })
+    expect(settingsAction).toHaveFocus()
+    fireEvent.keyDown(settingsAction, { key: 'End' })
     expect(deleteAction).toHaveFocus()
 
     fireEvent.keyDown(deleteAction, { key: 'Escape' })

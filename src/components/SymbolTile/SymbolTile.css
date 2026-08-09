@@ -2,7 +2,7 @@
   min-width: 0;
 }
 
-.symbol-tile {
+.symbol-tile.symbol-tile {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1.15;
@@ -87,4 +87,39 @@
   clip: rect(0 0 0 0);
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+.symbol-tile__dwell-progress {
+  position: absolute;
+  z-index: 2;
+  inset: calc(var(--space-8) * -1);
+  border: 5px dashed var(--color-primary);
+  border-radius: calc(var(--radius-8) + var(--space-8));
+  pointer-events: none;
+  animation: symbol-dwell-progress var(--symbol-dwell-duration) linear forwards;
+}
+
+.symbol-tile__activated-label {
+  position: absolute;
+  z-index: 3;
+  right: var(--space-8);
+  bottom: var(--space-8);
+  padding: var(--space-8);
+  border-radius: var(--radius-8);
+  color: #fff;
+  background: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.symbol-tile--use:active { transform: scale(0.98); }
+
+@keyframes symbol-dwell-progress {
+  from { clip-path: inset(0 100% 100% 0); }
+  50% { clip-path: inset(0 0 50% 0); }
+  to { clip-path: inset(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .symbol-tile--use:active { transform: none; }
 }

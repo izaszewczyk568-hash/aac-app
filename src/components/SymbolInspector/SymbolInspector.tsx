@@ -31,7 +31,7 @@ export function SymbolInspector({
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [position, setPosition] = useState<CSSProperties>({})
   const titleId = useId()
-  const speechHelpId = useId()
+  const nameHelpId = useId()
   const cancelDeleteRef = useRef<HTMLButtonElement>(null)
   const confirmDeleteRef = useRef<HTMLButtonElement>(null)
   const openDeleteRef = useRef<HTMLButtonElement>(null)
@@ -55,9 +55,6 @@ export function SymbolInspector({
     if (isDeleteOpen) cancelDeleteRef.current?.focus()
   }, [isDeleteOpen])
 
-  const updateImage = (changes: NonNullable<SymbolModel['image']> extends infer T ? Partial<T> : never) => {
-    if (symbol.image) onChange({ image: { ...symbol.image, ...changes } })
-  }
   const deleteName = symbol.label.trim() || 'symbol bez nazwy'
   function closeDeleteDialog() {
     setIsDeleteOpen(false)
@@ -76,24 +73,11 @@ export function SymbolInspector({
       </header>
 
       <div className="symbol-inspector__fields">
-        <label>Nazwa symbolu<input value={symbol.label} onChange={(e) => onChange({ label: e.target.value })} /></label>
         <label>
-          Tekst odczytywany na głos
-          <input aria-describedby={speechHelpId} value={symbol.speechText ?? ''} onChange={(e) => onChange({ speechText: e.target.value || null })} />
+          Nazwa symbolu
+          <input aria-describedby={nameHelpId} value={symbol.label} onChange={(e) => onChange({ label: e.target.value })} />
         </label>
-        <p id={speechHelpId} className="symbol-inspector__help">Gdy pole jest puste, późniejsza synteza mowy użyje nazwy symbolu.</p>
-
-        <div className="symbol-inspector__field-group">
-          <span>Obróć obraz</span>
-          <button type="button" onClick={() => updateImage({ rotation: (((symbol.image?.rotation ?? 0) + 90) % 360) as 0 | 90 | 180 | 270 })} disabled={!symbol.image}>
-            Obróć o 90°
-          </button>
-        </div>
-
-        <label>
-          Powiększenie obrazu: {Math.round((symbol.image?.scale ?? 1) * 100)}%
-          <input type="range" min="100" max="200" step="10" value={(symbol.image?.scale ?? 1) * 100} aria-valuetext={`${Math.round((symbol.image?.scale ?? 1) * 100)}%`} disabled={!symbol.image} onChange={(e) => updateImage({ scale: Number(e.target.value) / 100 })} />
-        </label>
+        <p id={nameHelpId} className="symbol-inspector__help">Ta sama nazwa będzie widoczna na kafelku i odczytywana na głos.</p>
 
         <label>Grubość obramowania (px)<input type="number" min="0" max="12" value={symbol.borderWidth} onChange={(e) => onChange({ borderWidth: Math.min(12, Math.max(0, Number(e.target.value))) })} /></label>
         <label>Kolor obramowania<input type="color" value={symbol.borderColor} onChange={(e) => onChange({ borderColor: e.target.value })} /></label>
