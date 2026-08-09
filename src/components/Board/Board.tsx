@@ -298,6 +298,16 @@ export function Board({
             <ul className="board__grid" style={gridStyle}>
               {children}
             </ul>
+            {isEditMode && (
+              <button
+                type="button"
+                className="board__primary board__add-symbol-floating"
+                onClick={onAddSymbol}
+                disabled={!onAddSymbol}
+              >
+                + Dodaj symbol
+              </button>
+            )}
           </>
         )}
       </section>

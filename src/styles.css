@@ -88,6 +88,36 @@ body {
   outline-offset: 3px;
 }
 
+.demo__file-input {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.demo__image-status,
+.demo__image-error {
+  position: fixed;
+  z-index: 5;
+  right: var(--space-24);
+  bottom: var(--space-24);
+  max-width: 24rem;
+  margin: 0;
+  padding: var(--space-16);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+  box-shadow: 0 var(--space-8) var(--space-24) rgb(23 32 42 / 18%);
+}
+
+.demo__image-error {
+  border: 2px solid var(--color-danger);
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
 @media (max-width: 40rem) {
   .demo__toolbar {
     align-items: flex-start;

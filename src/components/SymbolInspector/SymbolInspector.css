@@ -1,0 +1,79 @@
+.symbol-inspector {
+  position: fixed;
+  z-index: 10;
+  width: min(22rem, calc(100vw - var(--space-32)));
+  max-height: calc(100vh - var(--space-32));
+  overflow: auto;
+  padding: var(--space-16);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+  box-shadow: 0 var(--space-8) var(--space-24) rgb(23 32 42 / 24%);
+}
+
+.symbol-inspector__header,
+.symbol-inspector__dialog div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.symbol-inspector h2,
+.symbol-inspector h3,
+.symbol-inspector p { margin: 0; }
+.symbol-inspector h2 { font-size: 1.25rem; }
+
+.symbol-inspector__fields {
+  display: grid;
+  gap: var(--space-16);
+  margin: var(--space-16) 0;
+}
+
+.symbol-inspector label,
+.symbol-inspector__field-group {
+  display: grid;
+  gap: var(--space-8);
+  font-weight: 700;
+}
+
+.symbol-inspector input,
+.symbol-inspector select,
+.symbol-inspector button {
+  min-height: 2.75rem;
+  padding: var(--space-8);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.symbol-inspector input[type='color'] { width: 100%; }
+.symbol-inspector input[type='range'] { width: 100%; }
+.symbol-inspector :focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.symbol-inspector__help { color: var(--color-text-secondary); font-size: .875rem; font-weight: 400; }
+.symbol-inspector__danger { border-color: var(--color-danger) !important; color: var(--color-danger) !important; font-weight: 700; }
+
+.symbol-inspector__dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: var(--space-16);
+  background: rgb(23 32 42 / 55%);
+}
+
+.symbol-inspector__dialog {
+  width: min(28rem, 100%);
+  display: grid;
+  gap: var(--space-16);
+  padding: var(--space-24);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+}
+
+@media (max-width: 48rem) {
+  .symbol-inspector { left: var(--space-16) !important; right: var(--space-16); bottom: var(--space-16); top: auto !important; }
+}

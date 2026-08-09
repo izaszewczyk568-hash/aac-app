@@ -11,7 +11,7 @@
 
 ## Obecny stan
 
-Aplikacja nie zbiera, nie zapisuje ani nie przesyła danych użytkownika. Nie ma backendu, analityki, telemetrii, IndexedDB ani zmiennych środowiskowych. `.gitignore` wyklucza lokalne pliki środowiskowe oraz katalogi przeznaczone na prywatne dane i rzeczywiste eksporty, a `.env.example` nie zawiera wartości.
+Aplikacja nie zbiera, trwale nie zapisuje ani nie przesyła danych użytkownika. Nie ma backendu, analityki, telemetrii, IndexedDB ani zmiennych środowiskowych. Wybrany obraz jest walidowany, dekodowany, skalowany i kompresowany lokalnie w przeglądarce. Duży oryginał nie jest przechowywany; zoptymalizowany `Blob` oraz URL podglądu istnieją wyłącznie w pamięci demonstracji i są zwalniane po zakończeniu widoku. `.gitignore` wyklucza lokalne pliki środowiskowe oraz katalogi przeznaczone na prywatne dane i rzeczywiste eksporty, a `.env.example` nie zawiera wartości.
 
 ## Przyszłe przeglądy
 

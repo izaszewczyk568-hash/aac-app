@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 1 as const
+export const CURRENT_SCHEMA_VERSION = 2 as const
 
 export type SchemaVersion = typeof CURRENT_SCHEMA_VERSION
 export type IsoDateTime = string
@@ -8,6 +8,8 @@ export interface ImageReference {
   mimeType: string
   width: number
   height: number
+  rotation: 0 | 90 | 180 | 270
+  scale: number
 }
 
 export interface Symbol {
@@ -79,7 +81,10 @@ export interface CreateSymbolInput {
   label: string
   position: number
   speechText?: string | null
-  image?: ImageReference | null
+  image?: (Omit<ImageReference, 'rotation' | 'scale'> & {
+    rotation?: ImageReference['rotation']
+    scale?: number
+  }) | null
   borderColor?: string
   textColor?: string
   borderWidth?: number
@@ -185,7 +190,6 @@ export function createBoard(input: CreateBoardInput): Board {
 export function createSymbol(input: CreateSymbolInput): Symbol {
   requireNonBlank(input.id, 'Symbol.id')
   requireNonBlank(input.boardId, 'Symbol.boardId')
-  requireNonBlank(input.label, 'Symbol.label')
   requireNonNegative(input.position, 'Symbol.position')
 
   const borderWidth = input.borderWidth ?? DEFAULT_BORDER_WIDTH
@@ -201,7 +205,9 @@ export function createSymbol(input: CreateSymbolInput): Symbol {
     boardId: input.boardId,
     label: input.label,
     speechText: input.speechText ?? null,
-    image: input.image ?? null,
+    image: input.image
+      ? { rotation: 0, scale: 1, ...input.image }
+      : null,
     position: input.position,
     borderColor: input.borderColor ?? DEFAULT_BORDER_COLOR,
     textColor: input.textColor ?? DEFAULT_TEXT_COLOR,

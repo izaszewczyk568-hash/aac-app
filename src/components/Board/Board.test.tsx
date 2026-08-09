@@ -253,5 +253,8 @@ describe('Board', () => {
 
     const grid = screen.getByRole('list')
     expect(grid.style.getPropertyValue('--board-columns')).toBe('5')
+    expect(
+      screen.queryByRole('button', { name: /Dodaj symbol/ }),
+    ).not.toBeInTheDocument()
   })
 })

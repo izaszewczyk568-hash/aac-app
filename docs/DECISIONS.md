@@ -14,9 +14,9 @@ Test runner współdzieli konfigurację i sposób transformacji z Vite. Testing 
 
 ## 003 — Brak narzędzia E2E na etapie pustego fundamentu
 
-**Status:** przyjęta
+**Status:** zastąpiona po wprowadzeniu automatycznych testów a11y
 
-Struktura i skrypty pozwalają dodać testy przeglądarkowe wraz z pierwszym krytycznym przepływem. Instalację przeglądarek i zależności odkładamy, aby nie zwiększać kosztu projektu bez rzeczywistego scenariusza.
+Na etapie pustego fundamentu instalację przeglądarek odłożono. Decyzję zastąpiło późniejsze wymaganie stałych automatycznych skanów dostępności: Playwright i axe działają obecnie jako testy a11y, natomiast właściwe scenariusze E2E produktu nadal nie są zaimplementowane.
 
 ## 004 — Node.js 22 w CI
 
@@ -45,3 +45,17 @@ Tablice używają siatki określonej liczbą kolumn, a symbole pola `position`; 
 **Status:** przyjęta
 
 `CommunicationBook.mainBoardId` jest jedynym źródłem prawdy o głównej tablicy komunikacyjnej. `Board` nie przechowuje flagi głównej tablicy. Stan ten wylicza się przez porównanie `board.id === communicationBook.mainBoardId`, dzięki czemu nie może powstać rozbieżność między dwiema trwałymi reprezentacjami. `mainBoardId` może być `null`, a ustawienie innej tablicy zastępuje wcześniejszą wartość.
+
+## 008 — Lokalne przetwarzanie obrazów natywnymi API
+
+**Status:** przyjęta
+
+Walidacja, dekodowanie, skalowanie i kompresja obrazów symboli odbywają się wyłącznie w przeglądarce przy użyciu natywnych API, bez zewnętrznej biblioteki ani usługi. Model domenowy przechowuje tylko metadane `ImageReference`; zawartość binarna i tymczasowy URL podglądu pozostają poza domeną i na obecnym etapie istnieją wyłącznie w pamięci demo.
+
+## 009 — Transformacje obrazu jako metadane
+
+**Status:** przyjęta
+
+Obrót i powiększenie obrazu są zapisane w `ImageReference` jako `rotation` oraz `scale`. Transformacje są stosowane prezentacyjnie i nie powodują ponownej kompresji ani modyfikacji binarnego obrazu. Domyślne wartości to odpowiednio `0` i `1`.
+
+Dodanie trwałych pól transformacji podnosi `CURRENT_SCHEMA_VERSION` do `2`. Mechanizm migracji storage nie jest jeszcze potrzebny ani zaimplementowany, ponieważ aplikacja nadal nie zapisuje książek w IndexedDB.

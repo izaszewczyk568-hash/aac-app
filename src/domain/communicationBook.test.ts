@@ -92,6 +92,10 @@ describe('communication book domain model', () => {
     expect(symbol).not.toHaveProperty('y')
   })
 
+  it('allows an empty symbol label without creating a fallback value', () => {
+    expect(makeSymbol({ label: '' }).label).toBe('')
+  })
+
   it('uses mainBoardId as the only source of truth and can replace it', () => {
     const firstBoard = makeBoard()
     const secondBoard = makeBoard({ id: 'board-2' })
@@ -149,6 +153,8 @@ describe('communication book domain model', () => {
         mimeType: 'image/webp',
         width: 512,
         height: 512,
+        rotation: 0,
+        scale: 1,
       },
     })
 
@@ -157,6 +163,8 @@ describe('communication book domain model', () => {
       mimeType: 'image/webp',
       width: 512,
       height: 512,
+      rotation: 0,
+      scale: 1,
     })
   })
 })
