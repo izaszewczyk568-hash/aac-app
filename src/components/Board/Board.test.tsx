@@ -150,6 +150,32 @@ describe('Board', () => {
     expect(onBack).toHaveBeenCalledOnce()
   })
 
+  it('supports dwell or an immediate mouse click on Back in use mode', () => {
+    const onBack = vi.fn()
+    const { container } = render(
+      <Board
+        board={makeBoard()}
+        mode="use"
+        onBack={onBack}
+        backLabel="Wróć"
+        dwellEnabled
+      />,
+    )
+    const back = screen.getByRole('button', { name: '← Wróć' })
+
+    fireEvent.pointerEnter(back)
+    const progress = container.querySelector('.board__navigation-dwell-progress')
+    expect(progress).toBeInTheDocument()
+    fireEvent.animationEnd(progress!)
+    expect(onBack).toHaveBeenCalledOnce()
+
+    fireEvent.pointerLeave(back)
+    fireEvent.pointerEnter(back)
+    fireEvent.click(back)
+    expect(container.querySelector('.board__navigation-dwell-progress')).not.toBeInTheDocument()
+    expect(onBack).toHaveBeenCalledTimes(2)
+  })
+
   it('shows only the workspace in full screen and provides an exit button', () => {
     const originalRequestDescriptor = Object.getOwnPropertyDescriptor(
       HTMLElement.prototype,
@@ -165,6 +191,7 @@ describe('Board', () => {
     )
     const requestFullscreen = vi.fn().mockResolvedValue(undefined)
     const exitFullscreen = vi.fn().mockResolvedValue(undefined)
+    const onBack = vi.fn()
     let fullscreenElement: Element | null = null
 
     Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
@@ -181,7 +208,15 @@ describe('Board', () => {
     })
 
     try {
-      render(<Board board={makeBoard()} mode="use" />)
+      render(
+        <Board
+          board={makeBoard()}
+          mode="use"
+          onBack={onBack}
+          backLabel="Wróć"
+          dwellEnabled
+        />,
+      )
       const workspace = screen.getByRole('region', {
         name: 'Ta tablica nie ma jeszcze symboli.',
       })
@@ -192,9 +227,25 @@ describe('Board', () => {
 
       fullscreenElement = workspace
       fireEvent(document, new Event('fullscreenchange'))
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Zamknij pełny ekran' }),
-      )
+
+      const fullScreenBack = screen.getByRole('button', {
+        name: '← Wróć do poprzedniej tablicy',
+      })
+      expect(workspace).toContainElement(fullScreenBack)
+      expect(fullScreenBack.querySelector('svg')).toBeInTheDocument()
+      fireEvent.click(fullScreenBack)
+      expect(onBack).toHaveBeenCalledOnce()
+
+      const exitButton = screen.getByRole('button', { name: 'Zamknij pełny ekran' })
+      fireEvent.pointerEnter(exitButton)
+      const exitProgress = exitButton.querySelector('.board__exit-fullscreen-dwell-progress')
+      expect(exitProgress).toBeInTheDocument()
+      fireEvent.animationEnd(exitProgress!)
+
+      expect(exitFullscreen).toHaveBeenCalledOnce()
+      exitFullscreen.mockClear()
+
+      fireEvent.click(exitButton)
 
       expect(exitFullscreen).toHaveBeenCalledOnce()
     } finally {

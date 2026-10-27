@@ -27,14 +27,16 @@ test('critical book creation, editing, use and persistence flow', async ({ page 
   })
   await boardPage.getByLabel('Nazwa symbolu').fill('Tak')
   await expect(boardPage.getByText('Zapisano wszystkie zmiany')).toBeVisible()
+  await boardPage.keyboard.press('Escape')
+  await expect(boardPage.getByRole('complementary', { name: 'Ustawienia symbolu' })).toBeHidden()
 
   await boardPage.getByRole('button', { name: 'Uruchom tablicę' }).click()
   await boardPage.getByRole('button', { name: 'Tak' }).click()
   await expect(boardPage.getByText('Aktywowano')).toBeVisible()
 
   await page.reload()
-  await page.getByRole('button', { name: 'Otwórz księgę Księga E2E' }).click()
-  await page.getByRole('button', { name: 'Start' }).click()
+  await page.getByRole('button', { name: 'Wybierz księgę Księga E2E' }).click()
+  await page.getByRole('button', { name: 'Wybierz tablicę Start' }).click()
   await expect(page.getByRole('button', { name: 'Tak' })).toBeVisible()
   await boardPage.close()
 })

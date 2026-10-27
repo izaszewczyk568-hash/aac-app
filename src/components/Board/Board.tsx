@@ -7,6 +7,25 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react'
+import {
+  Add01Icon,
+  AlertCircleIcon,
+  ArrowLeft02Icon,
+  Cancel01Icon,
+  CheckmarkCircle02Icon,
+  Delete02Icon,
+  Download04Icon,
+  Edit02Icon,
+  FullScreenIcon,
+  GridViewIcon,
+  Home01Icon,
+  Loading03Icon,
+  MoreVerticalIcon,
+  PlayIcon,
+  Settings02Icon,
+  VolumeHighIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import type { Board as BoardModel } from '../../domain/communicationBook'
 import { BoardSettings } from '../BoardSettings/BoardSettings'
 import './Board.css'
@@ -28,6 +47,7 @@ export interface BoardProps {
   onAddSymbol?: () => void
   onRepeat?: () => void
   canRepeat?: boolean
+  dwellEnabled?: boolean
   onSettingsChange?: (changes: Partial<BoardModel>) => void
 }
 
@@ -37,18 +57,63 @@ const saveStatusLabels: Record<SaveStatus, string> = {
   error: 'Nie udało się zapisać zmian',
 }
 
+const saveStatusIcons = {
+  saving: Loading03Icon,
+  saved: CheckmarkCircle02Icon,
+  error: AlertCircleIcon,
+}
+
 const untitledBoardLabel = 'Tablica bez tytułu'
 
 function NavigationButton({
   children,
   onClick,
+  dwellEnabled = false,
+  dwellTime,
+  iconSize = 18,
 }: {
   children: ReactNode
   onClick?: () => void
+  dwellEnabled?: boolean
+  dwellTime: number
+  iconSize?: number
 }) {
+  const [isDwelling, setIsDwelling] = useState(false)
+  const dwellConsumed = useRef(false)
+
+  function activate() {
+    dwellConsumed.current = true
+    setIsDwelling(false)
+    onClick?.()
+  }
+
   return (
-    <button type="button" onClick={onClick} disabled={!onClick}>
+    <button
+      type="button"
+      className="board__navigation-button"
+      style={{ '--navigation-dwell-duration': `${dwellTime}ms` } as CSSProperties}
+      aria-label={`← ${String(children)}`}
+      onClick={activate}
+      onPointerEnter={() => {
+        if (dwellEnabled && !dwellConsumed.current) setIsDwelling(true)
+      }}
+      onPointerLeave={() => {
+        setIsDwelling(false)
+        dwellConsumed.current = false
+      }}
+      disabled={!onClick}
+    >
+      <HugeiconsIcon icon={ArrowLeft02Icon} size={iconSize} strokeWidth={2} aria-hidden="true" />
       {children}
+      {isDwelling && (
+        <span
+          className="board__navigation-dwell-progress"
+          aria-hidden="true"
+          onAnimationEnd={() => {
+            if (!dwellConsumed.current) activate()
+          }}
+        />
+      )}
     </button>
   )
 }
@@ -67,11 +132,13 @@ export function Board({
   onAddSymbol,
   onRepeat,
   canRepeat = false,
+  dwellEnabled = false,
   onSettingsChange,
 }: BoardProps) {
   const [name, setName] = useState(board.name)
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const [isWorkspaceFullScreen, setIsWorkspaceFullScreen] = useState(false)
+  const [isExitFullScreenDwelling, setIsExitFullScreenDwelling] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const nameInputId = useId()
   const gridHeadingId = useId()
@@ -79,11 +146,16 @@ export function Board({
   const firstMenuItemRef = useRef<HTMLButtonElement>(null)
   const lastMenuItemRef = useRef<HTMLButtonElement>(null)
   const workspaceRef = useRef<HTMLElement>(null)
+  const exitFullScreenDwellConsumedRef = useRef(false)
   const isEditMode = mode === 'edit'
   const displayName = name.trim() || untitledBoardLabel
+  const fullScreenBackLabel = backLabel === 'Wróć'
+    ? 'Wróć do poprzedniej tablicy'
+    : backLabel
   const isEmpty = board.symbols.length === 0
   const gridStyle = {
     '--board-columns': board.columns,
+    '--board-column-width': `calc(${100 / board.columns}% - ${(board.columns - 1) / board.columns}rem)`,
   } as CSSProperties
 
   useEffect(() => {
@@ -98,12 +170,22 @@ export function Board({
 
   useEffect(() => {
     function handleFullScreenChange() {
-      setIsWorkspaceFullScreen(
-        document.fullscreenElement === workspaceRef.current,
+      const fullScreenElement = document.fullscreenElement
+      const workspace = workspaceRef.current
+      const isFullScreen = Boolean(
+        fullScreenElement && workspace && (
+          fullScreenElement === workspace || fullScreenElement.contains(workspace)
+        ),
       )
+      setIsWorkspaceFullScreen(isFullScreen)
+      if (!isFullScreen) {
+        setIsExitFullScreenDwelling(false)
+        exitFullScreenDwellConsumedRef.current = false
+      }
     }
 
     document.addEventListener('fullscreenchange', handleFullScreenChange)
+    handleFullScreenChange()
     return () => {
       document.removeEventListener('fullscreenchange', handleFullScreenChange)
     }
@@ -155,11 +237,23 @@ export function Board({
     }
   }
 
+  function activateFullScreenExit() {
+    exitFullScreenDwellConsumedRef.current = true
+    setIsExitFullScreenDwelling(false)
+    exitWorkspaceFullScreen()
+  }
+
   return (
     <main className={`board board--${mode}`}>
       <header className="board__header">
         <div className="board__navigation">
-          <NavigationButton onClick={onBack}>← {backLabel}</NavigationButton>
+          <NavigationButton
+            onClick={onBack}
+            dwellEnabled={!isEditMode && dwellEnabled}
+            dwellTime={board.defaultDwellTime}
+          >
+            {backLabel}
+          </NavigationButton>
         </div>
 
         {isEditMode ? (
@@ -180,12 +274,17 @@ export function Board({
 
         {!isEditMode && <div className="board__use-actions">
           {onGoToMain && (
-            <button type="button" onClick={onGoToMain}>Tablica główna</button>
+            <button type="button" onClick={onGoToMain}>
+              <HugeiconsIcon icon={Home01Icon} size={18} strokeWidth={1.8} aria-hidden="true" />
+              Tablica główna
+            </button>
           )}
           <button type="button" onClick={onRepeat} disabled={!canRepeat}>
+            <HugeiconsIcon icon={VolumeHighIcon} size={18} strokeWidth={1.8} aria-hidden="true" />
             Powtórz
           </button>
           <button type="button" onClick={onStartEdit} disabled={!onStartEdit}>
+            <HugeiconsIcon icon={Edit02Icon} size={18} strokeWidth={1.8} aria-hidden="true" />
             Edytuj tablicę
           </button>
           <button
@@ -193,9 +292,7 @@ export function Board({
             className="board__primary board__fullscreen"
             onClick={enterWorkspaceFullScreen}
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5" />
-            </svg>
+            <HugeiconsIcon icon={FullScreenIcon} size={18} strokeWidth={1.8} aria-hidden="true" />
             Pełny ekran
           </button>
         </div>}
@@ -208,6 +305,13 @@ export function Board({
               aria-live="polite"
               aria-atomic="true"
             >
+              <HugeiconsIcon
+                className={saveStatus === 'saving' ? 'board__status-icon--spinning' : undefined}
+                icon={saveStatusIcons[saveStatus]}
+                size={16}
+                strokeWidth={2}
+                aria-hidden="true"
+              />
               {saveStatusLabels[saveStatus]}
             </p>
             <button
@@ -216,6 +320,7 @@ export function Board({
               onClick={onStartUse}
               disabled={!onStartUse}
             >
+              <HugeiconsIcon icon={PlayIcon} size={18} strokeWidth={2} aria-hidden="true" />
               Uruchom tablicę
             </button>
             <div className="board__more-actions">
@@ -228,7 +333,7 @@ export function Board({
                 aria-controls="board-more-menu"
                 onClick={() => setIsMoreMenuOpen((isOpen) => !isOpen)}
               >
-                ⋮
+                <HugeiconsIcon icon={MoreVerticalIcon} size={20} strokeWidth={2} aria-hidden="true" />
               </button>
               {isMoreMenuOpen && (
                 <div
@@ -247,6 +352,7 @@ export function Board({
                       setIsSettingsOpen(true)
                     }}
                   >
+                    <HugeiconsIcon icon={Settings02Icon} size={18} strokeWidth={1.8} aria-hidden="true" />
                     Ustawienia tablicy
                   </button>
                   <button
@@ -254,13 +360,7 @@ export function Board({
                     role="menuitem"
                     aria-disabled="true"
                   >
-                    <svg
-                      className="board__menu-icon"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" />
-                    </svg>
+                    <HugeiconsIcon icon={Download04Icon} size={18} strokeWidth={1.8} aria-hidden="true" />
                     Eksportuj tablicę
                   </button>
                   <button
@@ -270,13 +370,7 @@ export function Board({
                     role="menuitem"
                     aria-disabled="true"
                   >
-                    <svg
-                      className="board__menu-icon"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                    >
-                      <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
-                    </svg>
+                    <HugeiconsIcon icon={Delete02Icon} size={18} strokeWidth={1.8} aria-hidden="true" />
                     Usuń tablicę
                   </button>
                   <p>Eksport i usuwanie nie są jeszcze dostępne.</p>
@@ -292,18 +386,52 @@ export function Board({
         className="board__content"
         aria-labelledby={gridHeadingId}
       >
+        {isWorkspaceFullScreen && !isEditMode && onBack && (
+          <div className="board__fullscreen-navigation">
+            <NavigationButton
+              onClick={onBack}
+              dwellEnabled={dwellEnabled}
+              dwellTime={board.defaultDwellTime}
+              iconSize={26}
+            >
+              {fullScreenBackLabel}
+            </NavigationButton>
+          </div>
+        )}
         {isWorkspaceFullScreen && (
           <button
             type="button"
             className="board__exit-fullscreen"
             aria-label="Zamknij pełny ekran"
-            onClick={exitWorkspaceFullScreen}
+            style={{ '--exit-fullscreen-dwell-duration': `${board.defaultDwellTime}ms` } as CSSProperties}
+            onClick={activateFullScreenExit}
+            onPointerEnter={() => {
+              if (dwellEnabled && !exitFullScreenDwellConsumedRef.current) {
+                setIsExitFullScreenDwelling(true)
+              }
+            }}
+            onPointerLeave={() => {
+              setIsExitFullScreenDwelling(false)
+              exitFullScreenDwellConsumedRef.current = false
+            }}
           >
-            ×
+            <HugeiconsIcon icon={Cancel01Icon} size={22} strokeWidth={2} aria-hidden="true" />
+            {isExitFullScreenDwelling && (
+              <span
+                className="board__exit-fullscreen-dwell-progress"
+                aria-hidden="true"
+                onAnimationEnd={() => {
+                  if (!exitFullScreenDwellConsumedRef.current) activateFullScreenExit()
+                }}
+              />
+            )}
           </button>
         )}
         {isEmpty ? (
           <div className="board__empty-state">
+            <span className="board__empty-icon" aria-hidden="true">
+              <HugeiconsIcon icon={GridViewIcon} size={26} strokeWidth={1.6} />
+            </span>
             <h2 id={gridHeadingId}>Ta tablica nie ma jeszcze symboli.</h2>
             {isEditMode && (
               <>
@@ -311,10 +439,12 @@ export function Board({
                 <button
                   type="button"
                   className="board__primary"
+                  aria-label="+ Dodaj symbol"
                   onClick={onAddSymbol}
                   disabled={!onAddSymbol}
                 >
-                  + Dodaj symbol
+                  <HugeiconsIcon icon={Add01Icon} size={18} strokeWidth={2} aria-hidden="true" />
+                  Dodaj symbol
                 </button>
               </>
             )}
@@ -331,10 +461,12 @@ export function Board({
               <button
                 type="button"
                 className="board__primary board__add-symbol-floating"
+                aria-label="+ Dodaj symbol"
                 onClick={onAddSymbol}
                 disabled={!onAddSymbol}
               >
-                + Dodaj symbol
+                <HugeiconsIcon icon={Add01Icon} size={18} strokeWidth={2} aria-hidden="true" />
+                Dodaj symbol
               </button>
             )}
           </>

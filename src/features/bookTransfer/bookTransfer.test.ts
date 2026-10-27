@@ -44,6 +44,7 @@ function fixture(): { book: CommunicationBook; images: Map<string, Blob> } {
     defaultTextColor: '#334455',
     defaultBorderWidth: 4,
     symbols: [foodSymbol],
+    coverSymbolId: foodSymbol.id,
   })
   const food = createBoard({
     id: 'board-food',
@@ -56,6 +57,7 @@ function fixture(): { book: CommunicationBook; images: Map<string, Blob> } {
       name: 'Posiłki',
       boards: [main, food],
       mainBoardId: main.id,
+      coverSymbolId: foodSymbol.id,
     }),
     images: new Map([['image-food', new Blob(['image-binary'], { type: 'image/webp' })]]),
   }
@@ -75,6 +77,26 @@ function readText(blob: Blob): Promise<string> {
 }
 
 describe('CommunicationBook import/export', () => {
+  it('round-trips an optional direct book cover image', async () => {
+    const coverImage = {
+      id: 'book-cover-image',
+      mimeType: 'image/webp',
+      width: 320,
+      height: 240,
+      rotation: 0 as const,
+      scale: 1,
+    }
+    const book = createCommunicationBook({ id: 'book-cover', name: 'Moja księga', coverImage })
+    const blob = await createBookBackup(
+      book,
+      new Map([[coverImage.id, new Blob(['cover'], { type: coverImage.mimeType })]]),
+    )
+
+    const restored = await parseBookBackup(blob)
+    expect(restored.book.coverImage).toEqual(coverImage)
+    expect(restored.images.get(coverImage.id)?.type).toBe(coverImage.mimeType)
+  })
+
   it('exports the complete graph, settings and binary image without blob URLs', async () => {
     const { book, images } = fixture()
     const blob = await createBookBackup(book, images)
@@ -85,6 +107,8 @@ describe('CommunicationBook import/export', () => {
     expect(backup.communicationBook.boards).toHaveLength(2)
     expect(backup.communicationBook.boards[0].symbols).toHaveLength(1)
     expect(backup.communicationBook.mainBoardId).toBe('board-main')
+    expect(backup.communicationBook.coverSymbolId).toBe('symbol-food')
+    expect(backup.communicationBook.boards[0].coverSymbolId).toBe('symbol-food')
     expect(backup.communicationBook.boards[0].symbols[0].linkedBoardId).toBe('board-food')
     expect(backup.communicationBook.boards[0]).toMatchObject({
       columns: 5,
@@ -117,6 +141,8 @@ describe('CommunicationBook import/export', () => {
 
     expect(remapped.book.id).toBe('book-copy')
     expect(remapped.book.mainBoardId).toBe('main-copy')
+    expect(remapped.book.coverSymbolId).toBe('symbol-copy')
+    expect(remapped.book.boards[0].coverSymbolId).toBe('symbol-copy')
     expect(remapped.book.boards.map((board) => board.id)).toEqual(['main-copy', 'food-copy'])
     expect(remapped.book.boards[0].communicationBookId).toBe('book-copy')
     expect(remapped.book.boards[0].symbols[0]).toMatchObject({
@@ -146,6 +172,16 @@ describe('CommunicationBook import/export', () => {
 
     const imported = await parseBookBackup(new Blob([JSON.stringify(backup)]))
     expect(imported.book.boards[0].symbols[0].linkedBoardId).toBe('outside-book')
+  })
+
+  it('treats a missing Board cover from older compatible data as automatic', async () => {
+    const { book, images } = fixture()
+    const backup = JSON.parse(await readText(await createBookBackup(book, images)))
+    delete backup.communicationBook.boards[0].coverSymbolId
+
+    const imported = await parseBookBackup(new Blob([JSON.stringify(backup)]))
+    expect(imported.book.boards[0].coverSymbolId).toBeNull()
+    expect(imported.book.coverImage).toBeNull()
   })
 
   it('rejects a missing or corrupted image before returning imported data', async () => {

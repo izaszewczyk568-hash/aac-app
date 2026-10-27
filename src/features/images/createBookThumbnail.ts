@@ -1,12 +1,49 @@
-import type { CommunicationBook } from '../../domain/communicationBook'
+import type { Board, CommunicationBook } from '../../domain/communicationBook'
 
 export const BOOK_THUMBNAIL_WIDTH = 480
 export const BOOK_THUMBNAIL_HEIGHT = 270
+
+export function findBoardCoverImageId(
+  board: Board,
+  availableImageIds?: ReadonlySet<string>,
+): string | null {
+  const selectedCover = board.symbols.find(
+    (symbol) => symbol.id === board.coverSymbolId,
+  )
+  if (
+    selectedCover?.image &&
+    (!availableImageIds || availableImageIds.has(selectedCover.image.id))
+  ) {
+    return selectedCover.image.id
+  }
+
+  return [...board.symbols]
+    .sort((first, second) => first.position - second.position)
+    .find((symbol) => symbol.image && (!availableImageIds || availableImageIds.has(symbol.image.id)))
+    ?.image?.id ?? null
+}
 
 export function findBookThumbnailImageId(
   book: CommunicationBook,
   availableImageIds?: ReadonlySet<string>,
 ): string | null {
+  const coverSymbol = book.boards
+    .flatMap((board) => board.symbols)
+    .find((symbol) => symbol.id === book.coverSymbolId)
+  if (
+    coverSymbol?.image &&
+    (!availableImageIds || availableImageIds.has(coverSymbol.image.id))
+  ) {
+    return coverSymbol.image.id
+  }
+
+  if (
+    book.coverImage &&
+    (!availableImageIds || availableImageIds.has(book.coverImage.id))
+  ) {
+    return book.coverImage.id
+  }
+
   const mainBoard = book.boards.find((board) => board.id === book.mainBoardId)
   if (!mainBoard) return null
 

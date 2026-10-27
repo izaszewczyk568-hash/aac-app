@@ -1,0 +1,26 @@
+.select-control {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.select-control select {
+  width: 100%;
+  min-width: 0;
+  appearance: none;
+  padding-right: 2.75rem !important;
+  cursor: pointer;
+}
+
+.select-control__icon {
+  position: absolute;
+  top: 50%;
+  right: 0.875rem;
+  color: var(--color-text-secondary);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.select-control:focus-within .select-control__icon {
+  color: var(--color-primary);
+}

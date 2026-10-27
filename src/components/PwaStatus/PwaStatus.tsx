@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { AlertCircleIcon, RefreshIcon, WifiOff02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { applyPwaUpdate, registerPwa, type WaitingPwaUpdate } from '../../pwa/pwaClient'
 import './PwaStatus.css'
 
@@ -57,14 +59,21 @@ export function PwaStatus({
 
   return (
     <div className="pwa-status">
-      {isOffline && <p className="pwa-status__offline">Pracujesz offline</p>}
+      {isOffline && <p className="pwa-status__offline">
+        <HugeiconsIcon icon={WifiOff02Icon} size={18} strokeWidth={1.8} aria-hidden="true" />
+        Pracujesz offline
+      </p>}
       {update && (
         <div className="pwa-status__update">
           <p role="status">Nowa wersja aplikacji jest dostępna.</p>
           <button type="button" onClick={() => void updateNow()} disabled={isUpdating}>
+            <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.8} aria-hidden="true" />
             {isUpdating ? 'Aktualizowanie…' : updateError ? 'Spróbuj ponownie' : 'Zaktualizuj teraz'}
           </button>
-          {updateError && <p role="alert">Nie udało się bezpiecznie zapisać zmian i zaktualizować aplikacji.</p>}
+          {updateError && <p role="alert">
+            <HugeiconsIcon icon={AlertCircleIcon} size={18} strokeWidth={1.8} aria-hidden="true" />
+            Nie udało się bezpiecznie zapisać zmian i zaktualizować aplikacji.
+          </p>}
         </div>
       )}
     </div>

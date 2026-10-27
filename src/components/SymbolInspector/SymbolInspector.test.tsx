@@ -87,4 +87,16 @@ describe('SymbolInspector', () => {
     fireEvent.click(screen.getByRole('alertdialog').getElementsByTagName('button')[1])
     expect(onDelete).toHaveBeenCalledOnce()
   })
+
+  it('closes when the backdrop is selected but not when the panel is selected', () => {
+    const onClose = vi.fn()
+    const { container } = render(<SymbolInspector symbol={makeSymbol()} currentBoardId="board-current" boards={boards} onChange={vi.fn()} onClose={onClose} onDelete={vi.fn()} />)
+    const backdrop = container.querySelector('.symbol-inspector__backdrop')!
+    const panel = container.querySelector('.symbol-inspector')!
+
+    fireEvent.pointerDown(panel)
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.pointerDown(backdrop)
+    expect(onClose).toHaveBeenCalledOnce()
+  })
 })

@@ -156,6 +156,9 @@ function validateBoard(value: unknown): Board {
     id: requireNonBlankId(value, 'id'),
     communicationBookId: requireNonBlankId(value, 'communicationBookId'),
     name: requireString(value, 'name'),
+    coverSymbolId: Object.hasOwn(value, 'coverSymbolId')
+      ? requireNullableString(value, 'coverSymbolId')
+      : null,
     columns,
     defaultDwellTime,
     defaultBorderColor: requireString(value, 'defaultBorderColor'),
@@ -174,6 +177,12 @@ function validateBook(value: unknown, schemaVersion: number): CommunicationBook 
     schemaVersion: CURRENT_SCHEMA_VERSION,
     id: requireNonBlankId(value, 'id'),
     name: requireString(value, 'name'),
+    coverImage: Object.hasOwn(value, 'coverImage')
+      ? value.coverImage === null ? null : validateImageReference(value.coverImage)
+      : null,
+    coverSymbolId: Object.hasOwn(value, 'coverSymbolId')
+      ? requireNullableString(value, 'coverSymbolId')
+      : null,
     mainBoardId: requireNullableString(value, 'mainBoardId'),
     boards: value.boards.map(validateBoard),
     createdAt: requireString(value, 'createdAt'),
@@ -191,16 +200,26 @@ function validateRelations(book: CommunicationBook): void {
   const boardIds = book.boards.map((board) => board.id)
   const boardIdSet = new Set(boardIds)
   const symbols = book.boards.flatMap((board) => board.symbols)
+  const imageReferences = [
+    ...(book.coverImage ? [book.coverImage] : []),
+    ...symbols.flatMap((symbol) => symbol.image ? [symbol.image] : []),
+  ]
   assertUnique(boardIds)
   assertUnique(symbols.map((symbol) => symbol.id))
-  assertUnique(symbols.flatMap((symbol) => symbol.image ? [symbol.image.id] : []))
+  assertUnique(imageReferences.map((image) => image.id))
 
   if (book.mainBoardId !== null && !boardIdSet.has(book.mainBoardId)) {
     throw new BookTransferError('invalid-relations', 'Główna tablica nie istnieje w importowanej księdze.')
   }
+  if (book.coverSymbolId && !symbols.some((symbol) => symbol.id === book.coverSymbolId)) {
+    throw new BookTransferError('invalid-relations', 'Symbol okładki nie istnieje w importowanej księdze.')
+  }
   for (const board of book.boards) {
     if (board.communicationBookId !== book.id) {
       throw new BookTransferError('invalid-relations', 'Tablica wskazuje inną księgę.')
+    }
+    if (board.coverSymbolId && !board.symbols.some((symbol) => symbol.id === board.coverSymbolId)) {
+      throw new BookTransferError('invalid-relations', 'Symbol okładki tablicy nie istnieje na tej tablicy.')
     }
     for (const symbol of board.symbols) {
       if (symbol.boardId !== board.id) {
@@ -261,7 +280,10 @@ export function collectExistingIds(books: CommunicationBook[]): ExistingIds {
     bookIds: new Set(books.map((book) => book.id)),
     boardIds: new Set(boards.map((board) => board.id)),
     symbolIds: new Set(symbols.map((symbol) => symbol.id)),
-    imageIds: new Set(symbols.flatMap((symbol) => symbol.image ? [symbol.image.id] : [])),
+    imageIds: new Set([
+      ...books.flatMap((book) => book.coverImage ? [book.coverImage.id] : []),
+      ...symbols.flatMap((symbol) => symbol.image ? [symbol.image.id] : []),
+    ]),
   }
 }
 
@@ -287,6 +309,13 @@ export function remapConflictingIds(
   const symbolMap = new Map<string, string>()
   const imageMap = new Map<string, string>()
 
+  if (imported.book.coverImage) {
+    const oldImageId = imported.book.coverImage.id
+    const imageId = imageIds.has(oldImageId) ? nextAvailableId(imageIds, createId) : oldImageId
+    imageIds.add(imageId)
+    imageMap.set(oldImageId, imageId)
+  }
+
   for (const board of imported.book.boards) {
     const id = boardIds.has(board.id) ? nextAvailableId(boardIds, createId) : board.id
     boardIds.add(id)
@@ -307,6 +336,9 @@ export function remapConflictingIds(
     ...board,
     id: boardMap.get(board.id)!,
     communicationBookId: bookId,
+    coverSymbolId: board.coverSymbolId === null || board.coverSymbolId === undefined
+      ? null
+      : symbolMap.get(board.coverSymbolId)!,
     symbols: board.symbols.map((symbol) => ({
       ...symbol,
       id: symbolMap.get(symbol.id)!,
@@ -324,6 +356,12 @@ export function remapConflictingIds(
     book: {
       ...imported.book,
       id: bookId,
+      coverImage: imported.book.coverImage
+        ? { ...imported.book.coverImage, id: imageMap.get(imported.book.coverImage.id)! }
+        : null,
+      coverSymbolId: imported.book.coverSymbolId === null || imported.book.coverSymbolId === undefined
+        ? null
+        : symbolMap.get(imported.book.coverSymbolId)!,
       mainBoardId: imported.book.mainBoardId === null ? null : boardMap.get(imported.book.mainBoardId)!,
       boards,
     },
@@ -337,7 +375,11 @@ export async function createBookBackup(
 ): Promise<Blob> {
   validateRelations(book)
   const images: ExportedImage[] = []
-  for (const image of book.boards.flatMap((board) => board.symbols).flatMap((symbol) => symbol.image ? [symbol.image] : [])) {
+  const imageReferences = [
+    ...(book.coverImage ? [book.coverImage] : []),
+    ...book.boards.flatMap((board) => board.symbols).flatMap((symbol) => symbol.image ? [symbol.image] : []),
+  ]
+  for (const image of imageReferences) {
     const blob = imageBlobs.get(image.id)
     if (!blob) {
       throw new BookTransferError('missing-image', 'Nie można utworzyć kopii, ponieważ brakuje danych obrazu.')
@@ -388,8 +430,11 @@ export async function parseBookBackup(file: Blob): Promise<ImportedBook> {
   }
   const book = validateBook(parsed.communicationBook, parsed.schemaVersion)
   validateRelations(book)
-  const imageReferences = new Map(book.boards.flatMap((board) => board.symbols)
-    .flatMap((symbol) => symbol.image ? [[symbol.image.id, symbol.image] as const] : []))
+  const imageReferences = new Map([
+    ...(book.coverImage ? [[book.coverImage.id, book.coverImage] as const] : []),
+    ...book.boards.flatMap((board) => board.symbols)
+      .flatMap((symbol) => symbol.image ? [[symbol.image.id, symbol.image] as const] : []),
+  ])
   const images = new Map<string, Blob>()
   for (const value of parsed.images) {
     if (!isRecord(value)) throw new BookTransferError('invalid-image', 'Plik zawiera uszkodzone dane obrazu.')

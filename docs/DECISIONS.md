@@ -30,7 +30,7 @@
 
 ## 008 — Jedna runtime miniatura PNG karty
 
-**Status:** przyjęta. Karta wybiera pierwszy dostępny obraz symbolu głównej tablicy według `position`, tworzy lokalny PNG w runtime i pokazuje go przez zwalniany object URL. Źródłowy Blob nie jest modyfikowany, a PNG nie jest zapisywany w IndexedDB.
+**Status:** przyjęta. Opcjonalny `CommunicationBook.coverSymbolId` wskazuje symbol należący do tej samej księgi, a opcjonalny `CommunicationBook.coverImage` opisuje bezpośredni obraz dodany podczas tworzenia. Karta wybiera kolejno obraz wskazanego symbolu, bezpośrednią okładkę i pierwszy dostępny obraz symbolu głównej tablicy według `position`. Następnie tworzy lokalny PNG w runtime i pokazuje go przez zwalniany object URL. Źródłowy Blob nie jest modyfikowany, a PNG nie jest zapisywany w IndexedDB. Bezpośrednia okładka należy do agregatu, więc jest zapisywana, eksportowana, importowana i usuwana razem z księgą. Brak pola w starszych danych jest równoważny `null` i nie wymaga zmiany `schemaVersion = 4`.
 
 ## 009 — Reguły wejścia do Board
 
@@ -44,7 +44,7 @@ Select Inspectora pokazuje wszystkie inne lokalne Boards jako „Tablica — Ksi
 
 ## 011 — Historia i główna tablica w nawigacji cross-book
 
-**Status:** przyjęta. Historia przechowuje `{bookId, boardId}`, więc `Wróć` odtwarza oba konteksty. Po przejściu aktualną księgą staje się księga docelowa; „Tablica główna” korzysta z jej `mainBoardId`.
+**Status:** przyjęta. Historia przechowuje `{bookId, boardId}`, więc `Wróć` odtwarza oba konteksty. Po przejściu aktualną księgą staje się księga docelowa; „Tablica główna” korzysta z jej `mainBoardId`. W trybie `use` przycisk „Wróć” korzysta również z aktywacji dwell, ale zwykłe kliknięcie ma pierwszeństwo i wykonuje akcję od razu.
 
 ## 012 — Granica eksportu przy cross-book links
 
@@ -53,3 +53,19 @@ Select Inspectora pokazuje wszystkie inne lokalne Boards jako „Tablica — Ksi
 ## 013 — Fixtures i PWA oddzielone od danych użytkownika
 
 **Status:** przyjęta. Fixtures są syntetyczne i uruchamiane tylko jawnie w development build. Service worker cache’uje wyłącznie app shell; IndexedDB, obrazy, `.aacbook` i adresy `blob:` nie trafiają do Cache Storage.
+
+## 014 — Estetyka shadcn-vue bez migracji frameworka
+
+**Status:** przyjęta. Aplikacja pozostaje w React. Estetykę presetu shadcn-vue `a28C8pg8` odwzorowano przez istniejące CSS i tokeny: styl Nova, bazę Olive, akcent Teal, kompaktowe kontrolki, spokojne powierzchnie i standardowe zaokrąglenie. Typografia Inter jest bundlowana lokalnie przez `@fontsource-variable/inter`, a zgodna z presetem rodzina Stroke Rounded pochodzi z oficjalnych pakietów `@hugeicons/react` i `@hugeicons/core-free-icons`. Nie dodano Vue ani Tailwinda. Zasoby nie wymagają połączeń z zewnętrznym CDN, a Teal pozostaje przyciemniony dla czytelnego kontrastu tekstu i kontrolek.
+
+## 015 — Home jako biblioteka i punkt wejścia dziecka
+
+**Status:** przyjęta. Home zawsze pokazuje jedną sekcję wszystkich lokalnych ksiąg zamiast warunkowego „Ostatnio używane” i osobnej, zduplikowanej karty importu. Duża okładka jest główną kontrolką wyboru i prowadzi do listy tablic księgi; wspiera kliknięcie, klawiaturę i dwell. Zarządzanie księgą pozostaje w osobnym menu.
+
+## 016 — Jawna hierarchia wyboru księga → tablica → symbol
+
+**Status:** przyjęta. Dziecko przechodzi przez trzy jawne, wybieralne poziomy: okładkę księgi, okładkę tablicy i symbol. `Board.coverSymbolId` może wskazać wyłącznie symbol należący do tej tablicy. Brak ustawienia oznacza automatyczny wybór pierwszego obrazowego symbolu według `position`. Pole jest opcjonalnym i wstecznie zgodnym rozszerzeniem schematu 4; import danych bez niego zapisuje `null`. Usunięcie symbolu będącego okładką czyści nieaktualne odwołanie. Okładki księgi i tablicy są dużymi natywnymi przyciskami obsługującymi kliknięcie, klawiaturę i dwell. Po każdej nawigacji krótki cooldown dwell zapobiega kaskadowej aktywacji kontrolki, która pojawi się pod nieruchomym wskaźnikiem.
+
+## 017 — Jedna pełnoekranowa sesja dziecka i mowa na każdym poziomie
+
+**Status:** przyjęta. Wybranie księgi, tablicy lub symbolu przekazuje jego prezentowaną nazwę do tej samej lokalnej usługi Web Speech API. Pełnoekranowy tryb dziecka jest uruchamiany na stabilnym korzeniu `App`, a nie na pojedynczym widoku, dlatego nie kończy się przy przejściu `Home → CommunicationBook → Board`. Funkcje tworzenia, edycji i menu opiekuna są w tej sesji ukryte. Escape lub widoczny przycisk X kończą pełny ekran. Rozwiązanie używa natywnego Fullscreen API i nie dodaje zależności ani transmisji danych.

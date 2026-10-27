@@ -1,8 +1,19 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
+import {
+  Add01Icon,
+  ArrowLeft02Icon,
+  Cancel01Icon,
+  DatabaseAddIcon,
+  Delete02Icon,
+  GridViewIcon,
+  Home01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { Board, type BoardMode, type SaveStatus } from './components/Board/Board'
 import { SymbolTile } from './components/SymbolTile/SymbolTile'
 import { SymbolInspector } from './components/SymbolInspector/SymbolInspector'
 import { Home } from './components/Home/Home'
+import { CommunicationBoardCard } from './components/CommunicationBoardCard/CommunicationBoardCard'
 import { createBoard, createCommunicationBook, createSymbolForBoard, getEffectiveDwellTime, type CommunicationBook, type Symbol as SymbolModel } from './domain/communicationBook'
 import {
   ImageProcessingError,
@@ -11,6 +22,7 @@ import {
 } from './features/images/processImage'
 import {
   createBookThumbnailPng,
+  findBoardCoverImageId,
   findBookThumbnailImageId,
 } from './features/images/createBookThumbnail'
 import { browserSpeechService, type SpeechService } from './features/speech/speechService'
@@ -27,6 +39,7 @@ import {
 } from './data/communicationBookRepository'
 import { AutosaveCoordinator } from './data/autosaveCoordinator'
 import { PwaStatus } from './components/PwaStatus/PwaStatus'
+import { SelectControl } from './components/SelectControl/SelectControl'
 
 const demoBoard = createBoard({
   id: 'demo-board',
@@ -119,7 +132,6 @@ export function App({
   const [selectedSymbolId, setSelectedSymbolId] = useState<string | null>(null)
   const [imageSources, setImageSources] = useState<Record<string, string>>({})
   const [thumbnailSources, setThumbnailSources] = useState<Record<string, string>>({})
-  const [addedBookId, setAddedBookId] = useState<string | null>(null)
   const [imageError, setImageError] = useState<string | null>(null)
   const [isProcessingImage, setIsProcessingImage] = useState(false)
   const [demoMessage, setDemoMessage] = useState<string | null>(null)
@@ -128,11 +140,17 @@ export function App({
     message: string
   } | null>(null)
   const [dwellEnabled, setDwellEnabled] = useState(true)
+  const [isDwellReady, setIsDwellReady] = useState(true)
+  const [isChildFullScreen, setIsChildFullScreen] = useState(false)
+  const [isExitFullScreenDwelling, setIsExitFullScreenDwelling] = useState(false)
   const [lastSpokenText, setLastSpokenText] = useState<string | null>(null)
   const speechWarningShownRef = useRef(false)
   const navigationTimersRef = useRef<number[]>([])
   const importToastTimerRef = useRef<number | null>(null)
+  const dwellCooldownTimerRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const appRef = useRef<HTMLDivElement>(null)
+  const exitFullScreenDwellConsumedRef = useRef(false)
   const createdImageUrlsRef = useRef<string[]>([])
   const thumbnailUrlsRef = useRef(new Map<string, string>())
   const thumbnailImageIdsRef = useRef(new Map<string, string>())
@@ -232,11 +250,27 @@ export function App({
       thumbnailUrlsRef.current.forEach((url) => URL.revokeObjectURL?.(url))
       navigationTimersRef.current.forEach((timer) => window.clearTimeout(timer))
       if (importToastTimerRef.current !== null) window.clearTimeout(importToastTimerRef.current)
+      if (dwellCooldownTimerRef.current !== null) window.clearTimeout(dwellCooldownTimerRef.current)
       speechService.stop()
       autosaveRef.current.dispose()
     },
     [speechService],
   )
+
+  useEffect(() => {
+    function handleFullScreenChange() {
+      const isAppFullScreen = document.fullscreenElement === appRef.current
+      setIsChildFullScreen(isAppFullScreen)
+      if (!isAppFullScreen) {
+        setIsExitFullScreenDwelling(false)
+        exitFullScreenDwellConsumedRef.current = false
+      }
+    }
+
+    document.addEventListener('fullscreenchange', handleFullScreenChange)
+    handleFullScreenChange()
+    return () => document.removeEventListener('fullscreenchange', handleFullScreenChange)
+  }, [])
 
   function openImagePicker() {
     if (isProcessingImage) return
@@ -244,12 +278,29 @@ export function App({
   }
 
   function updateBoardEverywhere(updater: (current: typeof board) => typeof board) {
-    setBoard(updater)
+    const withValidCover = (candidate: typeof board) => {
+      const hasCover = candidate.coverSymbolId
+        ? candidate.symbols.some((symbol) => symbol.id === candidate.coverSymbolId)
+        : false
+      return {
+        ...candidate,
+        coverSymbolId: hasCover ? candidate.coverSymbolId : null,
+      }
+    }
+    setBoard((current) => withValidCover(updater(current)))
     setBooks((current) => current.map((book) => {
       if (!book.boards.some((item) => item.id === board.id)) return book
+      const boards = book.boards.map((item) => {
+        if (item.id !== board.id) return item
+        return withValidCover(updater(item))
+      })
+      const hasCoverSymbol = book.coverSymbolId
+        ? boards.some((item) => item.symbols.some((symbol) => symbol.id === book.coverSymbolId))
+        : false
       const updatedBook = {
         ...book,
-        boards: book.boards.map((item) => item.id === board.id ? updater(item) : item),
+        boards,
+        coverSymbolId: hasCoverSymbol ? book.coverSymbolId : null,
         updatedAt: new Date().toISOString(),
       }
       scheduleBookSave(updatedBook)
@@ -260,7 +311,10 @@ export function App({
 
   function getBookImages(book: CommunicationBook): Map<string, Blob> {
     const imageIds = new Set(
-      book.boards.flatMap((item) => item.symbols.flatMap((symbol) => symbol.image ? [symbol.image.id] : [])),
+      [
+        ...(book.coverImage ? [book.coverImage.id] : []),
+        ...book.boards.flatMap((item) => item.symbols.flatMap((symbol) => symbol.image ? [symbol.image.id] : [])),
+      ],
     )
     return new Map(
       [...imageBlobsRef.current].filter(([imageId]) => imageIds.has(imageId)),
@@ -386,6 +440,36 @@ export function App({
     }
   }
 
+  function enterChildFullScreen() {
+    const requestFullScreen = appRef.current?.requestFullscreen
+    if (requestFullScreen) {
+      void requestFullScreen.call(appRef.current).catch(() => undefined)
+    }
+  }
+
+  function exitFullScreen() {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined)
+    }
+  }
+
+  function activateFullScreenExit() {
+    exitFullScreenDwellConsumedRef.current = true
+    setIsExitFullScreenDwelling(false)
+    exitFullScreen()
+  }
+
+  function pauseDwellAfterNavigation() {
+    if (dwellCooldownTimerRef.current !== null) {
+      window.clearTimeout(dwellCooldownTimerRef.current)
+    }
+    setIsDwellReady(false)
+    dwellCooldownTimerRef.current = window.setTimeout(() => {
+      setIsDwellReady(true)
+      dwellCooldownTimerRef.current = null
+    }, 500)
+  }
+
   function activateSymbol(symbol: SymbolModel) {
     speakSymbolText(symbol.label)
     if (!symbol.linkedBoardId) return
@@ -396,6 +480,7 @@ export function App({
       const targetBoard = targetBook?.boards.find((candidate) => candidate.id === symbol.linkedBoardId)
       const demoTarget = demoBoards.find((candidate) => candidate.id === symbol.linkedBoardId)
       if (targetBook && targetBoard && symbol.linkedBoardId) {
+        pauseDwellAfterNavigation()
         onNavigateToBoard?.(symbol.linkedBoardId)
         setBoardHistory((current) => [...current, {
           bookId: openedBookId ?? board.communicationBookId,
@@ -415,27 +500,64 @@ export function App({
 
   const visibleBooks = books
   const openedBook = visibleBooks.find((book) => book.id === openedBookId)
+  const fullScreenExitDwellTime = openedBook?.boards.find(
+    (candidate) => candidate.id === openedBook.mainBoardId,
+  )?.defaultDwellTime ?? 1500
 
   function openBook(bookId: string) {
+    pauseDwellAfterNavigation()
     setOpenedBookId(bookId)
     setView('book')
   }
 
-  function createBook(name: string) {
+  function selectBookForUse(bookId: string) {
+    const selectedBook = visibleBooks.find((candidate) => candidate.id === bookId)
+    if (!selectedBook) return
+    speakSymbolText(selectedBook.name.trim() || 'Księga bez tytułu')
+    openBook(bookId)
+  }
+
+  async function createBook(name: string, coverFile: File | null) {
+    const bookId = crypto.randomUUID()
+    let coverImage: CommunicationBook['coverImage'] = null
+    const images = new Map<string, Blob>()
+
+    if (coverFile) {
+      const processedImage = await imageProcessor(coverFile)
+      const imageId = `${bookId}-cover-image`
+      coverImage = {
+        id: imageId,
+        mimeType: processedImage.mimeType,
+        width: processedImage.width,
+        height: processedImage.height,
+        rotation: 0,
+        scale: 1,
+      }
+      images.set(imageId, processedImage.blob)
+    }
+
     const book = createCommunicationBook({
-      id: crypto.randomUUID(),
+      id: bookId,
       name,
+      coverImage,
       createdAt: new Date().toISOString(),
     })
+
+    try {
+      await autosaveRef.current.track(dataRepository.saveBundles([{ book, images }]))
+    } catch {
+      throw new Error('Nie udało się zapisać nowej księgi lokalnie.')
+    }
+
+    images.forEach((blob, imageId) => imageBlobsRef.current.set(imageId, blob))
     setBooks((current) => [book, ...current])
-    void autosaveRef.current
-      .track(dataRepository.saveBundles([{ book, images: new Map() }]))
-      .catch(() => setDemoMessage('Nie udało się zapisać nowej księgi lokalnie.'))
+    void refreshBookThumbnail(book)
     setOpenedBookId(book.id)
     setView('book')
   }
 
   async function openBoardInBook(targetBoard: typeof board, targetMode: BoardMode = 'use') {
+    pauseDwellAfterNavigation()
     const storedImages = await dataRepository.getImagesForBook(targetBoard.communicationBookId)
     const nextSources: Record<string, string> = {}
     for (const [imageId, blob] of storedImages) {
@@ -451,6 +573,11 @@ export function App({
     setBoard(targetBoard)
     setMode(targetMode)
     setView('board')
+  }
+
+  function selectBoardForUse(targetBoard: typeof board) {
+    speakSymbolText(targetBoard.name.trim() || 'Tablica bez tytułu')
+    void openBoardInBook(targetBoard, 'use')
   }
 
   async function saveCreatedBoardAndOpen(
@@ -532,20 +659,23 @@ export function App({
       const previousBook = visibleBooks.find((candidate) => candidate.id === previousLocation.bookId)
       const previousBoard = previousBook?.boards.find((candidate) => candidate.id === previousLocation.boardId)
       if (previousBook && previousBoard) {
+        pauseDwellAfterNavigation()
         setBoardHistory((current) => current.slice(0, -1))
         setOpenedBookId(previousBook.id)
         setBoard(previousBoard)
         return
       }
     }
+    pauseDwellAfterNavigation()
     setView(openedBookId ? 'book' : 'home')
   }
 
-  function renameBook(bookId: string, name: string) {
+  function renameBook(bookId: string, name: string, coverSymbolId: string | null) {
     setBooks((current) => current.map((book) => {
       if (book.id !== bookId) return book
-      const updatedBook = { ...book, name, updatedAt: new Date().toISOString() }
+      const updatedBook = { ...book, name, coverSymbolId, updatedAt: new Date().toISOString() }
       scheduleBookSave(updatedBook)
+      void refreshBookThumbnail(updatedBook)
       return updatedBook
     }))
   }
@@ -555,6 +685,9 @@ export function App({
       await autosaveRef.current.flush()
       await autosaveRef.current.track(dataRepository.deleteBooks([bookId]))
       const deletedBook = visibleBooks.find((book) => book.id === bookId)
+      if (deletedBook?.coverImage) {
+        imageBlobsRef.current.delete(deletedBook.coverImage.id)
+      }
       deletedBook?.boards.forEach((deletedBoard) => deletedBoard.symbols.forEach((symbol) => {
         if (!symbol.image) return
         const imageUrl = imageSources[symbol.image.id]
@@ -563,6 +696,7 @@ export function App({
       }))
       setImageSources((current) => {
         const next = { ...current }
+        if (deletedBook?.coverImage) delete next[deletedBook.coverImage.id]
         deletedBook?.boards.forEach((deletedBoard) => deletedBoard.symbols.forEach((symbol) => {
           if (symbol.image) delete next[symbol.image.id]
         }))
@@ -578,7 +712,6 @@ export function App({
         return next
       })
       setBooks((current) => current.filter((book) => book.id !== bookId))
-      setAddedBookId((current) => current === bookId ? null : current)
     } catch {
       setTransferNotice({ type: 'error', message: 'Nie udało się usunąć księgi.' })
     }
@@ -588,6 +721,7 @@ export function App({
     if (!openedBook?.mainBoardId) return
     const main = openedBook.boards.find((candidate) => candidate.id === openedBook.mainBoardId)
     if (main) {
+      pauseDwellAfterNavigation()
       setBoard(main)
     }
   }
@@ -641,7 +775,6 @@ export function App({
       createdImageUrlsRef.current.push(...nextUrls)
       setImageSources((current) => ({ ...current, ...nextSources }))
       setBooks((current) => [imported.book, ...current])
-      setAddedBookId(imported.book.id)
       void refreshBookThumbnail(imported.book)
       setTransferNotice({ type: 'success', message: 'Księga została zaimportowana' })
       if (importToastTimerRef.current !== null) window.clearTimeout(importToastTimerRef.current)
@@ -691,20 +824,65 @@ export function App({
     : demoBoards.map((candidate) => ({ ...candidate, bookName: 'Podgląd developerski' }))
 
   return (
-    <div className="demo">
+    <div ref={appRef} className={`demo${isChildFullScreen ? ' demo--child-fullscreen' : ''}`}>
       <PwaStatus flushPendingWrites={() => autosaveRef.current.flush()} />
+      {isChildFullScreen && view !== 'board' && (
+        <button
+          type="button"
+          className="demo__exit-fullscreen"
+          aria-label="Zamknij pełnoekranowy tryb dziecka"
+          style={{ '--exit-fullscreen-dwell-duration': `${fullScreenExitDwellTime}ms` } as CSSProperties}
+          onClick={activateFullScreenExit}
+          onPointerEnter={() => {
+            if (dwellEnabled && isDwellReady && !exitFullScreenDwellConsumedRef.current) {
+              setIsExitFullScreenDwelling(true)
+            }
+          }}
+          onPointerLeave={() => {
+            setIsExitFullScreenDwelling(false)
+            exitFullScreenDwellConsumedRef.current = false
+          }}
+        >
+          <HugeiconsIcon icon={Cancel01Icon} size={24} strokeWidth={2} aria-hidden="true" />
+          {isExitFullScreenDwelling && (
+            <span
+              className="demo__exit-fullscreen-dwell-progress"
+              aria-hidden="true"
+              onAnimationEnd={() => {
+                if (!exitFullScreenDwellConsumedRef.current) activateFullScreenExit()
+              }}
+            />
+          )}
+        </button>
+      )}
       {import.meta.env.DEV && <aside className="demo__toolbar" aria-label="Sterowanie demonstracją">
         <p className="demo__label">Podgląd developerski</p>
-        <button type="button" onClick={() => setView('home')}>Home</button>
         <button type="button" onClick={() => {
+          pauseDwellAfterNavigation()
+          setView('home')
+        }}>
+          <HugeiconsIcon icon={Home01Icon} size={17} strokeWidth={1.8} aria-hidden="true" />
+          Home
+        </button>
+        <button type="button" onClick={() => {
+          pauseDwellAfterNavigation()
           setOpenedBookId(null)
           setBoard(demoBoard)
           setView('board')
-        }}>Demo Board</button>
+        }}>
+          <HugeiconsIcon icon={GridViewIcon} size={17} strokeWidth={1.8} aria-hidden="true" />
+          Demo Board
+        </button>
         {view === 'home' && (
           <div className="demo__data-actions">
-            <button type="button" onClick={() => void loadDemoData()}>Załaduj dane demo</button>
-            <button type="button" onClick={() => void clearDemoData()}>Usuń dane demo</button>
+            <button type="button" onClick={() => void loadDemoData()}>
+              <HugeiconsIcon icon={DatabaseAddIcon} size={17} strokeWidth={1.8} aria-hidden="true" />
+              Załaduj dane demo
+            </button>
+            <button type="button" onClick={() => void clearDemoData()}>
+              <HugeiconsIcon icon={Delete02Icon} size={17} strokeWidth={1.8} aria-hidden="true" />
+              Usuń dane demo
+            </button>
           </div>
         )}
         {view === 'board' && <>
@@ -735,7 +913,7 @@ export function App({
         {mode === 'edit' && (
           <label className="demo__status-control">
             Stan zapisu
-            <select
+            <SelectControl
               value={saveStatus}
               onChange={(event) =>
                 setSaveStatus(event.target.value as SaveStatus)
@@ -744,7 +922,7 @@ export function App({
               <option value="saved">Saved</option>
               <option value="saving">Saving</option>
               <option value="error">Error</option>
-            </select>
+            </SelectControl>
           </label>
         )}
         {mode === 'use' && (
@@ -764,28 +942,69 @@ export function App({
         <Home
           books={visibleBooks}
           onCreateBook={createBook}
-          onOpenBook={openBook}
+          onOpenBook={selectBookForUse}
+          onManageBook={openBook}
           onRenameBook={renameBook}
           onDeleteBook={deleteBook}
           onImportBook={importBook}
           onExportBook={exportBook}
           thumbnailSources={thumbnailSources}
-          addedBookId={addedBookId}
+          dwellEnabled={dwellEnabled && isDwellReady}
+          isChildFullScreen={isChildFullScreen}
+          onStartChildFullScreen={enterChildFullScreen}
           transferNotice={transferNotice}
         />
       )}
 
       {view === 'book' && openedBook && (
         <main className="book-view">
-          <button type="button" onClick={() => setView('home')}>← Wróć do strony głównej</button>
-          <h1>{openedBook.name.trim() || 'Księga bez tytułu'}</h1>
-          <p>{openedBook.boards.length} {openedBook.boards.length === 1 ? 'tablica' : 'tablice'}</p>
-          <button type="button" onClick={() => createBoardInBook(openedBook)}>+ Dodaj tablicę</button>
-          {openedBook.boards.length > 0 ? (
-            <ul>{openedBook.boards.map((item) => <li key={item.id}><button type="button" onClick={() => void openBoardInBook(item, 'use')}>{item.name.trim() || 'Tablica bez tytułu'}</button></li>)}</ul>
-          ) : (
-            <p>Ta księga nie ma jeszcze tablic.</p>
-          )}
+          <header className="book-view__header">
+            <button className="book-view__back" type="button" aria-label="← Wróć do strony głównej" onClick={() => {
+              pauseDwellAfterNavigation()
+              setView('home')
+            }}>
+              <HugeiconsIcon icon={ArrowLeft02Icon} size={18} strokeWidth={2} aria-hidden="true" />
+              Wróć do strony głównej
+            </button>
+            <div className="book-view__heading">
+              <span className="book-view__icon" aria-hidden="true">
+                <HugeiconsIcon icon={GridViewIcon} size={24} strokeWidth={1.7} />
+              </span>
+              <div>
+                <p>Księga AAC</p>
+                <h1>{openedBook.name.trim() || 'Księga bez tytułu'}</h1>
+                <span>{openedBook.boards.length} {openedBook.boards.length === 1 ? 'tablica' : 'tablice'}</span>
+              </div>
+            </div>
+            <button className="book-view__primary" type="button" aria-label="+ Dodaj tablicę" onClick={() => createBoardInBook(openedBook)}>
+              <HugeiconsIcon icon={Add01Icon} size={19} strokeWidth={2} aria-hidden="true" />
+              Dodaj tablicę
+            </button>
+          </header>
+          <section className="book-view__content" aria-labelledby="boards-title">
+            <h2 id="boards-title">Tablice w księdze</h2>
+            {openedBook.boards.length > 0 ? (
+              <ul>{openedBook.boards.map((item) => (
+                <li key={item.id}>
+                  <CommunicationBoardCard
+                    board={item}
+                    imageSource={(() => {
+                      const imageId = findBoardCoverImageId(item, new Set(Object.keys(imageSources)))
+                      return imageId ? imageSources[imageId] : undefined
+                    })()}
+                    isMainBoard={item.id === openedBook.mainBoardId}
+                    dwellEnabled={dwellEnabled && isDwellReady}
+                    onSelect={() => selectBoardForUse(item)}
+                  />
+                </li>
+              ))}</ul>
+            ) : (
+              <div className="book-view__empty">
+                <span aria-hidden="true"><HugeiconsIcon icon={GridViewIcon} size={28} strokeWidth={1.5} /></span>
+                <p>Ta księga nie ma jeszcze tablic.</p>
+              </div>
+            )}
+          </section>
         </main>
       )}
 
@@ -803,6 +1022,7 @@ export function App({
         onSettingsChange={(changes) => updateBoardEverywhere((current) => ({ ...current, ...changes, updatedAt: new Date().toISOString() }))}
         canRepeat={lastSpokenText !== null}
         onRepeat={() => lastSpokenText && speakSymbolText(lastSpokenText)}
+        dwellEnabled={mode === 'use' && dwellEnabled && isDwellReady}
       >
         {[...board.symbols]
           .sort((first, second) => first.position - second.position)
@@ -817,7 +1037,7 @@ export function App({
               selected={mode === 'edit' && selectedSymbolId === symbol.id}
               onSelect={setSelectedSymbolId}
               onActivate={activateSymbol}
-              dwellEnabled={mode === 'use' && dwellEnabled}
+              dwellEnabled={mode === 'use' && dwellEnabled && isDwellReady}
               dwellTime={getEffectiveDwellTime(symbol, board)}
             />
           ))}

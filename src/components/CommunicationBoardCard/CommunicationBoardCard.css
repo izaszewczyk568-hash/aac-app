@@ -1,0 +1,94 @@
+.communication-board-card {
+  --board-card-dwell-duration: 1500ms;
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(9rem, 1fr) auto;
+  width: 100%;
+  min-height: clamp(13rem, 34vh, 20rem);
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  color: var(--color-text);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.communication-board-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.communication-board-card:focus-visible {
+  z-index: 1;
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.communication-board-card__preview {
+  display: grid;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+  color: var(--color-primary);
+  background: var(--color-surface-muted);
+}
+
+.communication-board-card__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.communication-board-card__details {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  min-height: 4.5rem;
+  padding: var(--space-16);
+}
+
+.communication-board-card__details > span:first-child {
+  display: grid;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.communication-board-card__title {
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-lg);
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.communication-board-card__badge {
+  width: fit-content;
+  padding: 0.2rem var(--space-8);
+  border-radius: 999px;
+  color: var(--color-primary);
+  background: var(--color-primary-subtle);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.communication-board-card__dwell-progress {
+  position: absolute;
+  z-index: 3;
+  inset: var(--dwell-inset);
+  border: var(--dwell-border-width) var(--dwell-border-style) var(--color-primary);
+  border-radius: calc(var(--radius-panel) - 0.125rem);
+  pointer-events: none;
+  animation: child-dwell-progress var(--board-card-dwell-duration) linear forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .communication-board-card {
+    transition: none;
+  }
+}

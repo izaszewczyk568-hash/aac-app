@@ -65,7 +65,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Utwórz nową księgę' }))
     fireEvent.click(screen.getByRole('button', { name: 'Utwórz księgę' }))
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Księga bez tytułu' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Księga bez tytułu' })).toBeInTheDocument()
     expect(screen.getByText('Ta księga nie ma jeszcze tablic.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '← Wróć do strony głównej' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '+ Dodaj tablicę' }))
@@ -73,10 +73,49 @@ describe('App', () => {
     expect(openBoardTab).toHaveBeenCalledOnce()
     expect(vi.mocked(tab.navigate).mock.calls[0][0]).toMatch(/[?&]book=.+&board=.+&mode=edit/)
     expect(screen.getByRole('heading', { level: 1, name: 'Księga bez tytułu' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Tablica bez tytułu' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Wybierz tablicę Tablica bez tytułu' })).toBeInTheDocument()
   })
 
-  it('shows a transient import toast and a session-only added-book section', async () => {
+  it('processes and persists an optional cover while creating a CommunicationBook', async () => {
+    const repository = new MemoryCommunicationBookRepository()
+    const coverBlob = new Blob(['optimized-cover'], { type: 'image/webp' })
+    const imageProcessor = vi.fn().mockResolvedValue({
+      blob: coverBlob,
+      width: 320,
+      height: 240,
+      mimeType: 'image/webp',
+    })
+    render(
+      <App
+        initialView="home"
+        repository={repository}
+        imageProcessor={imageProcessor}
+        thumbnailProcessor={(blob) => Promise.resolve(blob)}
+        createImageUrl={() => 'blob:book-cover'}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Utwórz nową księgę' }))
+    const coverFile = new File(['cover'], 'okladka.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText(/Obraz okładki/), {
+      target: { files: [coverFile] },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Utwórz księgę' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Księga bez tytułu' })).toBeInTheDocument()
+    expect(imageProcessor).toHaveBeenCalledWith(coverFile)
+    const [savedBook] = await repository.listBooks()
+    expect(savedBook.coverImage).toMatchObject({
+      mimeType: 'image/webp',
+      width: 320,
+      height: 240,
+    })
+    expect(
+      (await repository.getImagesForBook(savedBook.id)).get(savedBook.coverImage!.id),
+    ).toBe(coverBlob)
+  })
+
+  it('shows a transient import toast and adds the book once to the permanent library', async () => {
     const repository = new MemoryCommunicationBookRepository()
     const importedBook = createCommunicationBook({ id: 'imported-book', name: 'Import test' })
     const backup = await createBookBackup(importedBook, new Map())
@@ -86,7 +125,8 @@ describe('App', () => {
     })
 
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Księga została zaimportowana'))
-    expect(screen.getByRole('heading', { name: 'Dodana księga' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Wybierz księgę' })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { name: 'Import test' })).toHaveLength(1)
     await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument(), { timeout: 5000 })
     expect((await repository.listBooks()).some((book) => book.id === 'imported-book')).toBe(true)
   })
@@ -101,7 +141,7 @@ describe('App', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Więcej opcji księgi Stara nazwa' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Edytuj księgę Stara nazwa' }))
     fireEvent.change(screen.getByLabelText('Nazwa księgi'), { target: { value: 'Nowa nazwa' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Zapisz nazwę' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Zapisz zmiany' }))
     expect(screen.getByRole('heading', { name: 'Nowa nazwa' })).toBeInTheDocument()
     await new Promise((resolve) => window.setTimeout(resolve, 350))
     expect((await repository.listBooks()).find((book) => book.id === original.id)?.name).toBe('Nowa nazwa')
@@ -126,13 +166,14 @@ describe('App', () => {
     const { tab, openBoardTab } = boardTabMock()
     render(<App initialView="home" repository={repository} openBoardTab={openBoardTab} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Otwórz księgę Księga ABC' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Więcej opcji księgi Księga ABC' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Zarządzaj księgą Księga ABC' }))
     expect(screen.getByRole('button', { name: '+ Dodaj tablicę' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '+ Dodaj tablicę' }))
     await waitFor(() => expect(tab.navigate).toHaveBeenCalledOnce())
     expect(screen.getByRole('button', { name: '+ Dodaj tablicę' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'A' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Wybierz tablicę A' }))
     expect(await screen.findByRole('heading', { level: 1, name: 'A' })).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Nazwa tablicy' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Edytuj tablicę' }))
@@ -147,14 +188,19 @@ describe('App', () => {
     const speechService = speechMock()
     render(<App initialView="home" repository={repository} createImageUrl={(blob) => `blob:fixture-${blob.size}`} thumbnailProcessor={(blob) => Promise.resolve(new Blob([blob], { type: 'image/png' }))} speechService={speechService} />)
 
-    const openMeals = await screen.findByRole('button', { name: 'Otwórz księgę Posiłki' })
+    const openMeals = await screen.findByRole('button', { name: 'Wybierz księgę Posiłki' })
     fireEvent.click(openMeals)
-    fireEvent.click(screen.getByRole('button', { name: 'Główna' }))
+    expect(speechService.speak).toHaveBeenNthCalledWith(1, 'Posiłki')
+    expect(screen.getByRole('heading', { level: 1, name: 'Posiłki' })).toBeInTheDocument()
+    const mainBoardCover = await screen.findByRole('button', { name: 'Wybierz tablicę Główna' })
+    expect(mainBoardCover.querySelector('img')).toBeInTheDocument()
+    fireEvent.click(mainBoardCover)
+    expect(speechService.speak).toHaveBeenNthCalledWith(2, 'Główna')
     await screen.findByRole('heading', { level: 1, name: 'Główna' })
     fireEvent.click(screen.getByRole('button', { name: 'Jedzenie' }))
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Jedzenie' }, { timeout: 1500 })).toBeInTheDocument()
-    expect(speechService.speak).toHaveBeenCalledWith('Jedzenie')
+    expect(speechService.speak).toHaveBeenNthCalledWith(3, 'Jedzenie')
     fireEvent.click(screen.getByRole('button', { name: '← Wróć' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Główna' })).toBeInTheDocument()
   })
@@ -168,8 +214,8 @@ describe('App', () => {
     ])
     render(<App initialView="home" repository={repository} speechService={speechMock()} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Otwórz księgę Księga A' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Start A' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Wybierz księgę Księga A' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Wybierz tablicę Start A' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Edytuj tablicę' }))
     fireEvent.click(screen.getByRole('button', { name: 'Wybierz symbol: Przejdź do B' }))
     expect(screen.getByRole('option', { name: 'Cel B — Księga B' })).toHaveValue('board-b1')
@@ -195,8 +241,8 @@ describe('App', () => {
     const { tab, openBoardTab } = boardTabMock()
     render(<App initialView="home" repository={repository} speechService={speechMock()} openBoardTab={openBoardTab} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Otwórz księgę Księga A' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Start A' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Wybierz księgę Księga A' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Wybierz tablicę Start A' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Edytuj tablicę' }))
     fireEvent.click(screen.getByRole('button', { name: 'Wybierz symbol: Przejdź do B' }))
     fireEvent.click(screen.getByRole('button', { name: '+ Utwórz nową tablicę' }))

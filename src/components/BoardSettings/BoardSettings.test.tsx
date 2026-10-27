@@ -1,9 +1,21 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { createBoard } from '../../domain/communicationBook'
+import { createBoard, createSymbol } from '../../domain/communicationBook'
 import { BoardSettings } from './BoardSettings'
 
-const board = createBoard({ id: 'board-1', communicationBookId: 'book-1', name: 'Jedzenie' })
+const coverSymbol = createSymbol({
+  id: 'symbol-1',
+  boardId: 'board-1',
+  label: 'Jabłko',
+  position: 0,
+  image: { id: 'image-1', mimeType: 'image/png', width: 100, height: 100 },
+})
+const board = createBoard({
+  id: 'board-1',
+  communicationBookId: 'book-1',
+  name: 'Jedzenie',
+  symbols: [coverSymbol],
+})
 
 describe('BoardSettings', () => {
   it('updates every supported board setting through native controls', () => {
@@ -17,6 +29,7 @@ describe('BoardSettings', () => {
     fireEvent.change(screen.getByLabelText('Domyślna grubość obramowania'), { target: { value: '-3' } })
     fireEvent.change(screen.getByLabelText('Domyślny kolor obramowania'), { target: { value: '#123456' } })
     fireEvent.change(screen.getByLabelText('Domyślny kolor tekstu'), { target: { value: '#654321' } })
+    fireEvent.change(screen.getByLabelText('Symbol okładki (opcjonalnie)'), { target: { value: 'symbol-1' } })
 
     expect(onChange).toHaveBeenCalledWith({ columns: 6 })
     expect(onChange).toHaveBeenCalledWith({ defaultDwellTime: 1500 })
@@ -24,6 +37,8 @@ describe('BoardSettings', () => {
     expect(onChange).toHaveBeenCalledWith({ defaultBorderWidth: 0 })
     expect(onChange).toHaveBeenCalledWith({ defaultBorderColor: '#123456' })
     expect(onChange).toHaveBeenCalledWith({ defaultTextColor: '#654321' })
+    expect(onChange).toHaveBeenCalledWith({ coverSymbolId: 'symbol-1' })
+    expect(screen.getByRole('option', { name: 'Jabłko' })).toHaveValue('symbol-1')
   })
 
   it('focuses the first setting and closes with Escape', () => {

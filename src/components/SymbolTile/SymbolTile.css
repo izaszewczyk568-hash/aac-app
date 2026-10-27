@@ -9,13 +9,16 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: var(--space-8);
+  overflow: hidden;
   padding: var(--space-16);
   border: var(--symbol-border-width, 2px) solid
     var(--symbol-border-color, var(--color-border-strong));
-  border-radius: var(--radius-8);
+  border-radius: var(--radius-panel);
   color: var(--symbol-text-color, var(--color-text));
   background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
   font: inherit;
+  transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
 .symbol-tile--interactive {
@@ -24,7 +27,9 @@
 }
 
 .symbol-tile--interactive:hover {
-  background: var(--color-surface-subtle);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-2px);
 }
 
 .symbol-tile--interactive[aria-pressed='true']::after {
@@ -44,6 +49,7 @@
 .symbol-tile__label {
   min-height: 1.5rem;
   overflow: hidden;
+  font-size: var(--font-size-sm);
   font-weight: 800;
   line-height: 1.2;
   text-align: center;
@@ -57,22 +63,26 @@
   display: grid;
   place-items: center;
   overflow: hidden;
+  contain: paint;
+  border-radius: calc(var(--radius-panel) - var(--space-8));
+  background: var(--color-surface-muted);
 }
 
 .symbol-tile__image {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
 }
 
 .symbol-tile__selected-label {
   position: absolute;
   right: var(--space-8);
   bottom: var(--space-8);
-  padding: var(--space-8);
-  border-radius: var(--radius-8);
-  color: var(--color-surface);
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  color: #ffffff;
   background: var(--color-primary);
   font-size: 0.75rem;
   font-weight: 800;
@@ -91,12 +101,12 @@
 
 .symbol-tile__dwell-progress {
   position: absolute;
-  z-index: 2;
-  inset: calc(var(--space-8) * -1);
-  border: 5px dashed var(--color-primary);
-  border-radius: calc(var(--radius-8) + var(--space-8));
+  z-index: 3;
+  inset: var(--dwell-inset);
+  border: var(--dwell-border-width) var(--dwell-border-style) var(--color-primary);
+  border-radius: calc(var(--radius-panel) - 0.125rem);
   pointer-events: none;
-  animation: symbol-dwell-progress var(--symbol-dwell-duration) linear forwards;
+  animation: child-dwell-progress var(--symbol-dwell-duration) linear forwards;
 }
 
 .symbol-tile__activated-label {
@@ -104,8 +114,8 @@
   z-index: 3;
   right: var(--space-8);
   bottom: var(--space-8);
-  padding: var(--space-8);
-  border-radius: var(--radius-8);
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
   color: #fff;
   background: var(--color-primary);
   font-size: 0.75rem;
@@ -114,12 +124,8 @@
 
 .symbol-tile--use:active { transform: scale(0.98); }
 
-@keyframes symbol-dwell-progress {
-  from { clip-path: inset(0 100% 100% 0); }
-  50% { clip-path: inset(0 0 50% 0); }
-  to { clip-path: inset(0); }
-}
-
 @media (prefers-reduced-motion: reduce) {
+  .symbol-tile.symbol-tile { transition: none; }
+  .symbol-tile--interactive:hover,
   .symbol-tile--use:active { transform: none; }
 }

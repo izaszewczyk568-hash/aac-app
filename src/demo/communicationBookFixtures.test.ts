@@ -22,6 +22,7 @@ describe('demo CommunicationBooks', () => {
     const boardIds = new Set<string>()
     const symbolIds = new Set<string>()
     const imageIds = new Set<string>()
+    let symbolCount = 0
 
     expect(books.map((book) => book.name)).toEqual([
       'Posiłki', 'Szkoła', 'Jak się czuję', 'Zabawa', 'Wizyta u lekarza',
@@ -31,24 +32,33 @@ describe('demo CommunicationBooks', () => {
       bookIds.add(book.id)
       const localBoardIds = new Set(book.boards.map((board) => board.id))
       expect(book.mainBoardId === null || localBoardIds.has(book.mainBoardId)).toBe(true)
+      expect(book.coverSymbolId).not.toBeNull()
       for (const board of book.boards) {
+        expect(board.name.trim()).not.toBe('')
         expect(board.communicationBookId).toBe(book.id)
+        expect(board.coverSymbolId).not.toBeNull()
         expect(boardIds.has(board.id)).toBe(false)
         boardIds.add(board.id)
         for (const symbol of board.symbols) {
+          symbolCount += 1
+          expect(symbol.label.trim()).not.toBe('')
           expect(symbol.boardId).toBe(board.id)
           expect(symbol.linkedBoardId === null || localBoardIds.has(symbol.linkedBoardId)).toBe(true)
           expect(symbolIds.has(symbol.id)).toBe(false)
           symbolIds.add(symbol.id)
-          if (symbol.image) {
-            expect(symbol.image.mimeType).toBe('image/png')
-            expect(imageIds.has(symbol.image.id)).toBe(false)
-            imageIds.add(symbol.image.id)
-          }
+          expect(symbol.image).not.toBeNull()
+          expect(symbol.image?.mimeType).toBe('image/png')
+          expect(imageIds.has(symbol.image!.id)).toBe(false)
+          imageIds.add(symbol.image!.id)
         }
+        const boardCoverSymbol = board.symbols.find((symbol) => symbol.id === board.coverSymbolId)
+        expect(boardCoverSymbol?.image).not.toBeNull()
       }
+      const coverSymbol = book.boards.flatMap((board) => board.symbols)
+        .find((symbol) => symbol.id === book.coverSymbolId)
+      expect(coverSymbol?.image).not.toBeNull()
     }
-    expect(imageIds.size).toBeGreaterThanOrEqual(6)
+    expect(imageIds.size).toBe(symbolCount)
   })
 
   it('covers linked navigation and default plus individual dwell in Posiłki', () => {
@@ -76,6 +86,17 @@ describe('demo CommunicationBooks', () => {
     expect(books.slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4).map((book) => book.name))
       .toEqual(['Posiłki', 'Szkoła', 'Jak się czuję', 'Zabawa'])
     expect((await reopenedRepository.getImagesForBook('demo-meals-book')).size).toBeGreaterThan(0)
+  })
+
+  it('creates one stored demo image for every signed symbol', async () => {
+    const bundles = await createDemoBookBundles(fakeAsset)
+
+    for (const { book, images } of bundles) {
+      const symbols = book.boards.flatMap((board) => board.symbols)
+      expect(symbols.every((symbol) => symbol.label.trim().length > 0)).toBe(true)
+      expect(symbols.every((symbol) => symbol.image && images.has(symbol.image.id))).toBe(true)
+      expect(images.size).toBe(symbols.length)
+    }
   })
 
   it('cleanup removes only original fixture IDs and preserves user and imported copies', async () => {

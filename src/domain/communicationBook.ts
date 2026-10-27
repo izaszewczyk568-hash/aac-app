@@ -31,6 +31,7 @@ export interface Board {
   id: string
   communicationBookId: string
   name: string
+  coverSymbolId?: string | null
   columns: number
   defaultDwellTime: number
   defaultBorderColor: string
@@ -45,6 +46,8 @@ export interface CommunicationBook {
   schemaVersion: SchemaVersion
   id: string
   name: string
+  coverImage?: ImageReference | null
+  coverSymbolId?: string | null
   mainBoardId: string | null
   boards: Board[]
   createdAt: IsoDateTime
@@ -54,6 +57,8 @@ export interface CommunicationBook {
 export interface CreateCommunicationBookInput {
   id: string
   name: string
+  coverImage?: ImageReference | null
+  coverSymbolId?: string | null
   mainBoardId?: string | null
   boards?: Board[]
   createdAt?: IsoDateTime
@@ -64,6 +69,7 @@ export interface CreateBoardInput {
   id: string
   communicationBookId: string
   name: string
+  coverSymbolId?: string | null
   columns?: number
   defaultDwellTime?: number
   defaultBorderColor?: string
@@ -143,12 +149,22 @@ export function createCommunicationBook(
     throw new Error('The main board must belong to its communication book.')
   }
 
+  const coverSymbolId = input.coverSymbolId ?? null
+  if (
+    coverSymbolId !== null &&
+    !boards.some((board) => board.symbols.some((symbol) => symbol.id === coverSymbolId))
+  ) {
+    throw new Error('The cover symbol must belong to its communication book.')
+  }
+
   const createdAt = input.createdAt ?? currentIsoDateTime()
 
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     id: input.id,
     name: input.name,
+    coverImage: input.coverImage ?? null,
+    coverSymbolId,
     mainBoardId,
     boards: [...boards],
     createdAt,
@@ -172,12 +188,21 @@ export function createBoard(input: CreateBoardInput): Board {
     throw new Error('Every symbol must belong to its board.')
   }
 
+  const coverSymbolId = input.coverSymbolId ?? null
+  if (
+    coverSymbolId !== null &&
+    !symbols.some((symbol) => symbol.id === coverSymbolId)
+  ) {
+    throw new Error('The cover symbol must belong to its board.')
+  }
+
   const createdAt = input.createdAt ?? currentIsoDateTime()
 
   return {
     id: input.id,
     communicationBookId: input.communicationBookId,
     name: input.name,
+    coverSymbolId,
     columns,
     defaultDwellTime,
     defaultBorderColor: input.defaultBorderColor ?? DEFAULT_BORDER_COLOR,

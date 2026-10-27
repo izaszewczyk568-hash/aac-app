@@ -66,6 +66,8 @@ describe('communication book domain model', () => {
       schemaVersion: CURRENT_SCHEMA_VERSION,
       id: 'book-1',
       name: 'Moja książka',
+      coverImage: null,
+      coverSymbolId: null,
       mainBoardId: null,
       boards: [],
       createdAt: timestamp,
@@ -73,10 +75,37 @@ describe('communication book domain model', () => {
     })
   })
 
+  it('stores an optional direct book cover image without requiring a Board', () => {
+    const coverImage = {
+      id: 'book-cover',
+      mimeType: 'image/webp',
+      width: 320,
+      height: 240,
+      rotation: 0 as const,
+      scale: 1,
+    }
+    const book = createCommunicationBook({ id: 'book-1', name: '', coverImage })
+
+    expect(book.coverImage).toEqual(coverImage)
+    expect(book.boards).toEqual([])
+  })
+
+  it('accepts only an optional cover symbol that belongs to the book', () => {
+    const symbol = makeSymbol()
+    const board = makeBoard({ symbols: [symbol] })
+    const book = createCommunicationBook({ id: 'book-1', name: '', boards: [board], coverSymbolId: symbol.id })
+
+    expect(book.coverSymbolId).toBe(symbol.id)
+    expect(() => createCommunicationBook({ id: 'book-1', name: '', boards: [board], coverSymbolId: 'outside' })).toThrow(
+      'The cover symbol must belong to its communication book.',
+    )
+  })
+
   it('creates a board with grid and visual defaults', () => {
     const board = makeBoard()
 
     expect(board).toMatchObject({
+      coverSymbolId: null,
       columns: 4,
       defaultDwellTime: 1000,
       defaultBorderColor: '#000000',
@@ -86,6 +115,16 @@ describe('communication book domain model', () => {
     })
     expect(board).not.toHaveProperty('x')
     expect(board).not.toHaveProperty('y')
+  })
+
+  it('accepts only an optional cover symbol that belongs to the Board', () => {
+    const symbol = makeSymbol()
+    const board = makeBoard({ symbols: [symbol], coverSymbolId: symbol.id })
+
+    expect(board.coverSymbolId).toBe(symbol.id)
+    expect(() => makeBoard({ symbols: [symbol], coverSymbolId: 'outside' })).toThrow(
+      'The cover symbol must belong to its board.',
+    )
   })
 
   it('allows a board name to be blank without replacing its value', () => {

@@ -113,8 +113,8 @@ test('imported book, image, editing and linked-board navigation work offline', a
     await expect(page.getByRole('heading', { name: 'Księga offline' })).toBeVisible()
     await page.evaluate(() => window.dispatchEvent(new Event('offline')))
     await expect(page.getByText('Pracujesz offline')).toBeVisible()
-    await page.getByRole('button', { name: 'Otwórz księgę Księga offline' }).click()
-    await page.getByRole('button', { name: 'Start' }).click()
+    await page.getByRole('button', { name: 'Wybierz księgę Księga offline' }).click()
+    await page.getByRole('button', { name: 'Wybierz tablicę Start' }).click()
     await expect(page.locator('.symbol-tile__image')).toBeVisible()
 
     await page.getByRole('button', { name: 'Edytuj tablicę' }).click()
@@ -123,8 +123,8 @@ test('imported book, image, editing and linked-board navigation work offline', a
     await expect(page.getByText('Zapisano wszystkie zmiany')).toBeVisible()
 
     await page.reload()
-    await page.getByRole('button', { name: 'Otwórz księgę Księga offline' }).click()
-    await page.getByRole('button', { name: 'Start offline' }).click()
+    await page.getByRole('button', { name: 'Wybierz księgę Księga offline' }).click()
+    await page.getByRole('button', { name: 'Wybierz tablicę Start offline' }).click()
     await page.getByRole('button', { name: 'Przejdź dalej' }).click()
     await expect(page.getByRole('heading', { name: 'Druga tablica' })).toBeVisible()
   } finally {

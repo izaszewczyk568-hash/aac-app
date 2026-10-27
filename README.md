@@ -14,7 +14,7 @@ npm ci
 npm run dev
 ```
 
-Home pozwala utworzyć, otworzyć, zmienić nazwę, usunąć, zaimportować lub wyeksportować księgę. Istniejąca tablica otwiera się w trybie `use`, nowa w `edit`. W trybie developerskim jawna akcja `Załaduj dane demo` zapisuje pięć syntetycznych ksiąg; fixtures nie są dodawane automatycznie.
+Home zawiera stałą bibliotekę wszystkich lokalnych ksiąg. Duża okładka księgi prowadzi do wyboru tablic, a duża okładka tablicy otwiera ją w trybie `use`; oba poziomy obsługują kliknięcie, klawiaturę i dwell oraz odczytują wybraną nazwę głosowo. Symbole na tablicy korzystają z tych samych metod aktywacji. Pełnoekranowy tryb dziecka może rozpocząć się na Home i pozostaje aktywny przez całą ścieżkę księga → tablica → symbole. Osobne funkcje pozwalają opiekunowi zarządzać zawartością. Nowa tablica otwiera się w `edit`. W trybie developerskim jawna akcja `Załaduj dane demo` zapisuje lub odświeża pięć syntetycznych, w pełni ilustrowanych ksiąg; fixtures nie są dodawane automatycznie.
 
 Plik `.aacbook` jest lokalną, wersjonowaną kopią jednej `CommunicationBook` wraz z jej tablicami, symbolami i obrazami. Import i eksport nie wysyłają danych do sieci. Eksport nie dołącza innych ksiąg wskazanych przez linki między tablicami.
 
